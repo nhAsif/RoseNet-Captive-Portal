@@ -204,7 +204,7 @@
         return;
       }
       try {
-        const response = await fetch(`/auth?voucher=${voucherCode}&ip=${clientIP}&mac=${clientMAC}`);
+        const response = await fetch(`/binauth-stage?voucher=${voucherCode}&ip=${clientIP}&mac=${clientMAC}`);
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Unknown error');
         successMessage.textContent = `Success! You have access for ${data.duration} minutes. Redirecting...`;

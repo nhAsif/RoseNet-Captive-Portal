@@ -18,6 +18,10 @@ cp /tmp/voucher_server /opt/voucher/
 chmod +x /opt/voucher/voucher_server
 cp -r /tmp/frontend/* /www/voucher/
 
+# Copy the binauth script and make it executable
+cp /tmp/scripts/binauth.sh /opt/voucher/
+chmod +x /opt/voucher/binauth.sh
+
 # 3. Create the init script to start the server on boot
 echo "Creating init.d startup script..."
 cat < < 'EOF' > /etc/init.d/voucher
@@ -81,9 +85,8 @@ config nodogsplash
   option fwhook_enabled '1'
   option gatewayinterface 'br-lan'
   option maxclients '250'
-  option auth_service 'http://192.168.100.1:7891/auth'
+  option binauth '/opt/voucher/binauth.sh'
   option client_idle_timeout '2'
-  option client_force_timeout '2'
   list preauthenticated_users 'allow tcp port 7891'
   list preauthenticated_users 'allow tcp port 53'
   list preauthenticated_users 'allow udp port 53'
@@ -91,7 +94,6 @@ config nodogsplash
   option splashpage 'splash.html'
   option preauthidletimeout '3'
   option authidletimeout '1'
-  option sessiontimeout '2'
   option checkinterval '20'
   list authenticated_users 'allow all'
   list preauthenticated_users 'allow tcp port 53'

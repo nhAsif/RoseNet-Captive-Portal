@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -15,6 +17,11 @@ import (
 
 // var adminPassword = "rosepinepink" // This will now be stored in the database
 var sessionCookieName = "voucher-admin-session"
+
+// For BinAuth: an in-memory store to stage client authentications.
+// Key: MAC address, Value: duration in seconds
+var stagedAuths = make(map[string]int)
+var stagedAuthsMutex = &sync.Mutex{}
 
 func generateVoucherCode() (string, error) {
 	bytes := make([]byte, 4) // 8 characters hex
@@ -65,6 +72,8 @@ func main() {
 
 
 	// Setup routes
+	http.HandleFunc("/binauth-stage", binauthStageHandler) // For staging an auth from the frontend
+	http.HandleFunc("/binauth-check", binauthCheckHandler) // For the binauth script to check
 	http.HandleFunc("/auth", authHandler)
 
 	// Admin routes
@@ -89,66 +98,67 @@ func main() {
 
 }
 
-func authHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	voucherCode := r.URL.Query().Get("voucher")
-	clientIP := r.URL.Query().Get("ip")
-	clientMAC := r.URL.Query().Get("mac")
-
+// validateVoucher checks if a voucher is valid and returns it along with an error message suitable for clients.
+func validateVoucher(voucherCode string) (*Voucher, string) {
 	if voucherCode == "" {
-		http.Error(w, `{"error": "Voucher code is required"}`, http.StatusBadRequest)
-		return
+		return nil, "Voucher code is required"
 	}
-
-	
 
 	voucher, err := getVoucherByCode(voucherCode)
 	if err != nil {
-		
-		http.Error(w, `{"error": "Invalid voucher code"}`, http.StatusUnauthorized)
-		return
+		return nil, "Invalid voucher code"
 	}
 
 	// Validation checks
 	// Check 1: One-time voucher already used?
 	if !voucher.IsReusable && voucher.IsUsed {
-		
-		http.Error(w, `{"error": "Voucher has already been used"}`, http.StatusUnauthorized)
-		return
+		return nil, "Voucher has already been used"
 	}
 
 	// Check 2: Has the voucher itself expired (e.g. promotional voucher for December)
 	if !voucher.Expiration.IsZero() && time.Now().After(voucher.Expiration) {
-		
-		http.Error(w, `{"error": "Voucher has expired"}`, http.StatusUnauthorized)
-		return
+		return nil, "Voucher has expired"
 	}
 
 	// Check 3: Has the active period expired since first use?
 	// This applies to all vouchers that have been used at least once.
 	if voucher.IsUsed && voucher.Duration > 0 {
 		if time.Since(voucher.StartTime).Minutes() > float64(voucher.Duration) {
-			
-			http.Error(w, `{"error": "Voucher access duration has expired"}`, http.StatusUnauthorized)
-			return
+			return nil, "Voucher access duration has expired"
 		}
+	}
+
+	return voucher, "" // No error
+}
+
+func authHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	voucherCode := r.URL.Query().Get("voucher")
+	clientIP := r.URL.Query().Get("ip")
+	clientMAC := r.URL.Query().Get("mac")
+
+	voucher, errMsg := validateVoucher(voucherCode)
+	if errMsg != "" {
+		log.Printf("Auth validation failed for voucher '%s': %s", voucherCode, errMsg)
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, errMsg), http.StatusUnauthorized)
+		return
 	}
 
 	// If we are here, the voucher is valid to be used.
 	// If it's the first time it's being used for anyone, mark it.
 	if !voucher.IsUsed {
-		err = useVoucher(voucher.Code, clientIP, clientMAC)
+		err := useVoucher(voucher.Code, clientIP, clientMAC)
 		if err != nil {
-			
+			log.Printf("Error marking voucher as used: %v", err)
 			http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
 			return
 		}
-		
+		log.Printf("First use of voucher '%s' by MAC %s", voucher.Code, clientMAC)
 	} else {
-		
+		log.Printf("Repeat use of voucher '%s' by MAC %s", voucher.Code, clientMAC)
 	}
 
-	
+	log.Printf("Successfully authenticated voucher %s for MAC %s, providing %d minutes.", voucher.Code, clientMAC, voucher.Duration)
 
 	response := map[string]interface{}{
 		"status":   "success",
@@ -315,7 +325,7 @@ func adminChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		OldPassword string `json:"old_password"`
 		NewPassword string `json:"new_password"`
-	} 
+	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, `{"error": "Invalid request body"}`, http.StatusBadRequest)
 		return
@@ -344,4 +354,81 @@ func adminChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(`{"status": "success"}`))
+}
+
+// binauthStageHandler is called by the frontend to validate a voucher and "stage" it for BinAuth.
+func binauthStageHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	voucherCode := r.URL.Query().Get("voucher")
+	clientMAC := r.URL.Query().Get("mac")
+	clientIP := r.URL.Query().Get("ip")
+
+	if clientMAC == "" {
+		http.Error(w, `{"error": "Client MAC address is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	voucher, errMsg := validateVoucher(voucherCode)
+	if errMsg != "" {
+		log.Printf("BinAuth stage validation failed for voucher '%s': %s", voucherCode, errMsg)
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, errMsg), http.StatusUnauthorized)
+		return
+	}
+
+	// If it's the first use, mark it in the DB.
+	if !voucher.IsUsed {
+		err := useVoucher(voucher.Code, clientIP, clientMAC)
+		if err != nil {
+			log.Printf("Error marking voucher as used: %v", err)
+			http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Stage the authentication for the binauth script to pick up.
+	durationInSeconds := voucher.Duration * 60
+	stagedAuthsMutex.Lock()
+	stagedAuths[clientMAC] = durationInSeconds
+	stagedAuthsMutex.Unlock()
+
+	// Set a timer to clean up the staged auth if not used within a short period (e.g., 30 seconds)
+	// This prevents the map from growing indefinitely if the check call never comes.
+	time.AfterFunc(30*time.Second, func() {
+		stagedAuthsMutex.Lock()
+		// We only delete if it exists, no harm if it was already used and deleted.
+		delete(stagedAuths, clientMAC)
+		stagedAuthsMutex.Unlock()
+	})
+
+	response := map[string]interface{}{
+		"status":   "success",
+		"duration": voucher.Duration,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// binauthCheckHandler is called by the binauth.sh script.
+func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	clientMAC := r.URL.Query().Get("mac")
+	if clientMAC == "" {
+		http.Error(w, "MAC address required", http.StatusBadRequest)
+		return
+	}
+
+	stagedAuthsMutex.Lock()
+	duration, ok := stagedAuths[clientMAC]
+	if ok {
+		// IMPORTANT: Delete the entry after successful check to prevent replay.
+		delete(stagedAuths, clientMAC)
+	}
+	stagedAuthsMutex.Unlock()
+
+	if ok {
+		// Respond with plain text for the shell script
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintf(w, "%d", duration)
+	} else {
+		// Not found or already used
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+	}
 }
