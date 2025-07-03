@@ -39,27 +39,61 @@ jobs:
         mv $BINARY_NAME ../ # Move to root of workspace
       shell: bash
 
-    - name: Create release archive
+    - name: Create release archive and checksum
       run: |
-        ARCHIVE_NAME="RoseNet-Portal-${{ matrix.os }}-${{ matrix.arch }}.zip"
-        # Create a temporary directory to stage files for zipping
-        mkdir -p temp_release_dir
         BINARY_NAME="voucher_server"
         if [ "${{ matrix.os }}" = "windows" ]; then
           BINARY_NAME="voucher_server.exe"
         fi
-        cp $BINARY_NAME temp_release_dir/
-        cp -r frontend temp_release_dir/
-        cp scripts/install.sh temp_release_dir/
-        # Zip the contents of temp_release_dir
-        cd temp_release_dir
-        zip -r ../$ARCHIVE_NAME .
-        cd ..
-        rm -rf temp_release_dir # Clean up temporary directory
+
+        RELEASE_NAME="RoseNet-Portal-${{ matrix.os }}-${{ matrix.arch }}"
+        
+        # Create a temporary directory to stage files
+        mkdir -p "${RELEASE_NAME}"
+        cp "${BINARY_NAME}" "${RELEASE_NAME}/"
+        cp -r frontend "${RELEASE_NAME}/"
+        cp nodogsplash/nodogsplash.conf "${RELEASE_NAME}/"
+        cp LICENSE "${RELEASE_NAME}/"
+        
+        if [ "${{ matrix.os }}" = "windows" ]; then
+          ARCHIVE_NAME="${RELEASE_NAME}.zip"
+          zip -r "${ARCHIVE_NAME}" "${RELEASE_NAME}"
+        else
+          ARCHIVE_NAME="${RELEASE_NAME}.tar.gz"
+          tar -czvf "${ARCHIVE_NAME}" "${RELEASE_NAME}"
+        fi
+        
+        # Generate SHA256 checksum
+        sha256sum "${ARCHIVE_NAME}" > "${ARCHIVE_NAME}.sha256"
+        
+        rm -rf "${RELEASE_NAME}" # Clean up temporary directory
       shell: bash
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: RoseNet-Portal-${{ matrix.os }}-${{ matrix.arch }}
-        path: RoseNet-Portal-${{ matrix.os }}-${{ matrix.arch }}.zip
+        name: ${{ matrix.os }}-${{ matrix.arch }}
+        path: |
+          RoseNet-Portal-${{ matrix.os }}-${{ matrix.arch }}.*
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: List downloaded artifacts
+      run: ls -R artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: artifacts/**/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
