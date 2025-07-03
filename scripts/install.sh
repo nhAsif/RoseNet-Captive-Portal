@@ -4,6 +4,10 @@
 # It assumes you have copied the 'voucher_server' binary and the 'frontend' directory
 # to the /tmp/ directory on the router.
 
+# Determine the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+RELEASE_ROOT="$(dirname "$SCRIPT_DIR")"
+
 echo "Setting up voucher system..."
 
 # 1. Create directories
@@ -14,17 +18,17 @@ mkdir -p /data # For the persistent database
 
 # 2. Copy files
 echo "Copying application files..."
-cp /tmp/voucher_server /opt/voucher/
+cp "$RELEASE_ROOT/voucher_server" /opt/voucher/
 chmod +x /opt/voucher/voucher_server
-cp -r /tmp/frontend/* /www/voucher/
+cp -r "$RELEASE_ROOT/frontend"/* /www/voucher/
 
 # Copy the binauth script and make it executable
-cp /tmp/scripts/binauth.sh /opt/voucher/
+cp "$SCRIPT_DIR/binauth.sh" /opt/voucher/
 chmod +x /opt/voucher/binauth.sh
 
 # 3. Create the init script to start the server on boot
 echo "Creating init.d startup script..."
-cat < < 'EOF' > /etc/init.d/voucher
+cat << 'EOF' > /etc/init.d/voucher
 #!/bin/sh /etc/rc.common
 
 START=99
@@ -116,7 +120,7 @@ EOF
 # 6. Create the custom splash page for redirection
 echo "Creating custom NoDogSplash splash page..."
 mkdir -p /etc/nodogsplash/htdocs/
-cat < < 'EOF' > /etc/nodogsplash/htdocs/splash.html
+cat << 'EOF' > /etc/nodogsplash/htdocs/splash.html
 <!DOCTYPE html>
 <html>
 <head>

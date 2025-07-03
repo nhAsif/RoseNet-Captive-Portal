@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -180,7 +179,7 @@
     </form>
     <p id="errorMessage" class="message error-message"></p>
     <p id="successMessage" class="message success-message"></p>
-    <p class="quote">“The internet is not a luxury, it’s a necessity.” – FCC</p>
+    <p class="quote">“The internet is not a luxury, it's a necessity.” – FCC</p>
   </div>
 
   <footer>
@@ -215,6 +214,25 @@
         errorMessage.textContent = error.message;
       }
     });
+
+    // Auto-auth check on page load
+    (async function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientMAC = urlParams.get('mac');
+      const token = urlParams.get('token');
+      if (clientMAC && token) {
+        try {
+          const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
+          if (resp.ok) {
+            // Already authorized, auto-redirect to NoDogSplash auth URL
+            window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+            return;
+          }
+        } catch (e) {
+          // Ignore errors, show form as fallback
+        }
+      }
+    })();
   </script>
 </body>
 </html>

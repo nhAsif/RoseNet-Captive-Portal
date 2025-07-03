@@ -12,9 +12,6 @@ import (
 	"time"
 )
 
-
-
-
 // var adminPassword = "rosepinepink" // This will now be stored in the database
 var sessionCookieName = "voucher-admin-session"
 
@@ -35,7 +32,7 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(sessionCookieName)
 		if err != nil || cookie.Value != "admin-is-logged-in" {
-			
+
 			w.Header().Set("Content-Type", "application/json")
 			http.Error(w, `{"error": "Unauthorized"}`, http.StatusUnauthorized)
 			return
@@ -49,9 +46,8 @@ func setupLogging() {
 	// On OpenWRT, /tmp/ is a ramdisk, so this is fine for logging.
 	logFile, err := os.OpenFile("/tmp/voucher.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 
-
 	if err != nil {
-		
+
 	}
 	log.SetOutput(logFile)
 }
@@ -61,15 +57,17 @@ func main() {
 
 	// Setup database
 	if err := setupDatabase(); err != nil {
-		
+
 	}
 
 	// Initialize admin password if not set
 	if err := initializeAdminPassword("rosepinepink"); err != nil {
-		
+
 	}
 
-
+	// --- BEGIN: Re-stage active users for NoDogSplash after restart ---
+	restageActiveUsers()
+	// --- END: Re-stage active users ---
 
 	// Setup routes
 	http.HandleFunc("/binauth-stage", binauthStageHandler) // For staging an auth from the frontend
@@ -84,16 +82,12 @@ func main() {
 	http.HandleFunc("/admin/change-password", authMiddleware(adminChangePasswordHandler))
 	http.HandleFunc("/admin/logout", adminLogoutHandler)
 
-
 	// Serve frontend files from the absolute path where install.sh places them
 	fs := http.FileServer(http.Dir("/www/voucher/"))
 	http.Handle("/", fs)
 
-	
-
-
 	if err := http.ListenAndServe(":7891", nil); err != nil {
-		
+
 	}
 
 }
@@ -167,7 +161,6 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-
 func adminLoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != http.MethodPost {
@@ -186,13 +179,13 @@ func adminLoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Get admin password from database
 	currentAdminPassword, err := getSetting("admin_password")
 	if err != nil {
-		
+
 		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
 		return
 	}
 
 	if creds.Password != currentAdminPassword {
-		
+
 		http.Error(w, `{"error": "Invalid credentials"}`, http.StatusUnauthorized)
 		return
 	}
@@ -200,12 +193,12 @@ func adminLoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Set a simple session cookie
 	expiration := time.Now().Add(10 * time.Minute)
 	cookie := http.Cookie{
-		Name:    sessionCookieName,
-		Value:   "admin-is-logged-in", // In a real app, this would be a secure token
-		Expires: expiration,
-		Path:    "/", // Set path to / so it can be read by /admin/* and /admin.html
-		HttpOnly: true, // Prevent JavaScript access to the cookie
-		Secure:   false, // Set to false for HTTP connections. Set to true for HTTPS in production.
+		Name:     sessionCookieName,
+		Value:    "admin-is-logged-in", // In a real app, this would be a secure token
+		Expires:  expiration,
+		Path:     "/",                     // Set path to / so it can be read by /admin/* and /admin.html
+		HttpOnly: true,                    // Prevent JavaScript access to the cookie
+		Secure:   false,                   // Set to false for HTTP connections. Set to true for HTTPS in production.
 		SameSite: http.SameSiteStrictMode, // Protect against CSRF
 	}
 	http.SetCookie(w, &cookie)
@@ -214,10 +207,10 @@ func adminLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func adminLogoutHandler(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
-		Name:    sessionCookieName,
-		Value:   "",
-		Expires: time.Unix(0, 0), // Set expiration to a past date to delete the cookie
-		Path:    "/",
+		Name:     sessionCookieName,
+		Value:    "",
+		Expires:  time.Unix(0, 0), // Set expiration to a past date to delete the cookie
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   false, // Set to false for HTTP connections. Set to true for HTTPS in production.
 		SameSite: http.SameSiteStrictMode,
@@ -243,7 +236,7 @@ func adminAddHandler(w http.ResponseWriter, r *http.Request) {
 	if v.Code == "" {
 		code, err := generateVoucherCode()
 		if err != nil {
-			
+
 			http.Error(w, `{"error": "Could not generate voucher code"}`, http.StatusInternalServerError)
 			return
 		}
@@ -257,16 +250,15 @@ func adminAddHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := addVoucher(v)
 	if err != nil {
-		
+
 		http.Error(w, `{"error": "Could not add voucher. Code may already exist."}`, http.StatusInternalServerError)
 		return
 	}
 
-	
 	// Return the newly created voucher, including its generated code and ID
 	newVoucher, err := getVoucherByCode(v.Code)
 	if err != nil {
-		
+
 		http.Error(w, `{"error": "Could not retrieve new voucher"}`, http.StatusInternalServerError)
 		return
 	}
@@ -295,12 +287,11 @@ func adminDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := deleteVoucher(payload.ID)
 	if err != nil {
-		
+
 		http.Error(w, `{"error": "Could not delete voucher"}`, http.StatusInternalServerError)
 		return
 	}
 
-	
 	w.Write([]byte(`{"status": "success"}`))
 }
 
@@ -308,7 +299,7 @@ func adminVouchersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vouchers, err := getVouchers()
 	if err != nil {
-		
+
 		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
 		return
 	}
@@ -427,8 +418,55 @@ func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
 		// Respond with plain text for the shell script
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintf(w, "%d", duration)
-	} else {
-		// Not found or already used
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
 	}
+
+	// --- NEW: Check the database for persistent authentication ---
+	vouchers, err := getVouchers()
+	if err == nil {
+		now := time.Now()
+		for _, v := range vouchers {
+			if v.UserMAC == clientMAC && v.IsUsed && v.Duration > 0 && !v.StartTime.IsZero() {
+				expiry := v.StartTime.Add(time.Duration(v.Duration) * time.Minute)
+				if now.Before(expiry) {
+					remaining := int(expiry.Sub(now).Seconds())
+					if remaining > 0 {
+						w.Header().Set("Content-Type", "text/plain")
+						fmt.Fprintf(w, "%d", remaining)
+						return
+					}
+				}
+			}
+		}
+	}
+	// --- END NEW ---
+
+	// Not found or already used
+	http.Error(w, "Not authorized", http.StatusUnauthorized)
+}
+
+// restageActiveUsers scans the database for all vouchers that are in use and not expired, and re-stages them for NoDogSplash.
+func restageActiveUsers() {
+	vouchers, err := getVouchers()
+	if err != nil {
+		log.Printf("[restageActiveUsers] Failed to get vouchers: %v", err)
+		return
+	}
+	now := time.Now()
+	count := 0
+	for _, v := range vouchers {
+		if v.IsUsed && v.UserMAC != "" && v.Duration > 0 && !v.StartTime.IsZero() {
+			expiry := v.StartTime.Add(time.Duration(v.Duration) * time.Minute)
+			if now.Before(expiry) {
+				remaining := int(expiry.Sub(now).Seconds())
+				if remaining > 0 {
+					stagedAuthsMutex.Lock()
+					stagedAuths[v.UserMAC] = remaining
+					stagedAuthsMutex.Unlock()
+					count++
+				}
+			}
+		}
+	}
+	log.Printf("[restageActiveUsers] Re-staged %d active users for NoDogSplash.", count)
 }

@@ -79,22 +79,21 @@ Follow these steps to build the server binary and deploy it on your OpenWrt rout
     build.bat
     ```
 
-2.  **Copy Files to Router**:
-    Transfer the compiled `voucher_server` binary and the entire `frontend` directory to the `/tmp/` directory on your OpenWrt router. You can use `scp` or a similar tool.
+2.  **Copy the Release Directory to the Router**:
+    Transfer the entire project directory (including `voucher_server`, `frontend`, and `scripts`) to your OpenWrt router. You can use `scp` or a similar tool.
 
     ```bash
-    # Example using scp
-    scp voucher_server root@your_router_ip:/tmp/
-    scp -r frontend root@your_router_ip:/tmp/
-    scp -r scripts root@your_router_ip:/tmp/
+    # Example using scp from your project root
+    scp -r RoseNet-Captive-Portal root@your_router_ip:/root/
     ```
 
 3.  **Run Installation Script on Router**:
-    SSH into your OpenWrt router and execute the installation script:
+    SSH into your OpenWrt router, navigate to the project directory, and execute the installation script:
 
     ```bash
     ssh root@your_router_ip
-    sh /tmp/scripts/install.sh
+    cd /root/RoseNet-Captive-Portal
+    ./scripts/install.sh
     ```
 
     The `install.sh` script automates the following:
@@ -111,28 +110,30 @@ This method is recommended for users who do not wish to set up a Go development 
 
 1.  **Download the Release Archive**:
     Go to the [GitHub Releases page](https://github.com/nhAsif/RoseNet-Access-Portal/releases)
-    Download the `RoseNet-Portal-linux-arm.zip` (or `RoseNet-Portal-linux-arm64.zip` depending on your router's architecture) file from the latest release.
+    Download the appropriate release archive (e.g., `RoseNet-Portal-linux-arm.zip` or `RoseNet-Portal-linux-arm64.zip`) for your router's architecture.
 
-2.  **Extract and Copy Files to Router**:
-    Extract the contents of the downloaded `.zip` file on your local machine. It will contain `voucher_server`, the `frontend` directory, and `install.sh`.
-    Transfer these extracted files to the `/tmp/` directory on your OpenWrt router. You can use `scp` or a similar tool.
+2.  **Extract and Copy the Directory to Router**:
+    Extract the contents of the downloaded archive on your local machine. It will contain `voucher_server`, the `frontend` directory, and the `scripts` directory.
+    Transfer the entire extracted directory to your OpenWrt router:
 
     ```bash
     # Example using scp from your extracted directory
-    scp voucher_server root@your_router_ip:/tmp/
-    scp -r frontend root@your_router_ip:/tmp/
-    scp install.sh root@your_router_ip:/tmp/
+    scp -r RoseNet-Portal-linux-arm root@your_router_ip:/root/
     ```
 
 3.  **Run Installation Script on Router**:
-    SSH into your OpenWrt router and execute the installation script:
+    SSH into your OpenWrt router, navigate to the extracted directory, and execute the installation script:
 
     ```bash
     ssh root@your_router_ip
-    sh /tmp/install.sh
+    cd /root/RoseNet-Portal-linux-arm
+    ./scripts/install.sh
     ```
 
     The `install.sh` script will perform the same setup steps as described in Method 1.
+
+**Note:**
+The install script will automatically copy all required files from the extracted directory to their correct locations on the router. There is no need to manually move files to `/tmp/`.
 
 ## Usage
 

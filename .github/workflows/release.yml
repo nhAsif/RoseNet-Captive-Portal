@@ -55,6 +55,7 @@ jobs:
         cp -r frontend "${RELEASE_NAME}/"
         cp nodogsplash/nodogsplash.conf "${RELEASE_NAME}/"
         cp LICENSE "${RELEASE_NAME}/"
+        cp -r scripts "${RELEASE_NAME}/"
         
         if [ "${{ matrix.os }}" = "windows" ]; then
           ARCHIVE_NAME="${RELEASE_NAME}.zip"
