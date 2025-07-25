@@ -19,6 +19,8 @@ jobs:
         include:
           - os: linux
             arch: arm # For 32-bit ARM Linux
+          - os: linux
+            arch: mipsle # For ramips
 
     steps:
     - name: Checkout code
@@ -29,6 +31,12 @@ jobs:
       with:
         go-version: '1.22' # Use a recent Go version
 
+    - name: Install UPX
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y upx-ucl
+      shell: bash
+
     - name: Build backend
       run: |
         cd backend
@@ -36,8 +44,17 @@ jobs:
         if [ "${{ matrix.os }}" = "windows" ]; then
           BINARY_NAME="voucher_server.exe"
         fi
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o $BINARY_NAME
+        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w" -o $BINARY_NAME .
         mv $BINARY_NAME ../ # Move to root of workspace
+      shell: bash
+
+    - name: Compress binary with UPX
+      run: |
+        BINARY_NAME="voucher_server"
+        if [ "${{ matrix.os }}" = "windows" ]; then
+          BINARY_NAME="voucher_server.exe"
+        fi
+        upx --best --lzma $BINARY_NAME
       shell: bash
 
     - name: Create release archive and checksum

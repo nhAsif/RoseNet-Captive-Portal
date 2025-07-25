@@ -7,10 +7,16 @@ export GOOS=linux
 export GOARCH=arm
 
 echo "Building Go backend for OpenWRT..."
-go build -o ../voucher_server -v ../backend
+
+# Change to the backend directory
+cd "$(dirname "$0")/../backend" || exit
+
+go build -ldflags="-s -w" -o ../voucher_server -v .
 
 if [ $? -eq 0 ]; then
-    echo "Build successful! The binary is 'voucher_server'."
+    echo "Build successful! Compressing with UPX..."
+    upx --best --lzma ../voucher_server
+    echo "Compression complete. The binary is 'voucher_server'."
     echo "Copy 'voucher_server', the 'frontend/' directory, and 'voucher.db' to your router."
 else
     echo "Build failed."

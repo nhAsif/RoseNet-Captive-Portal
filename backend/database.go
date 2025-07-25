@@ -1,14 +1,24 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/json"
+	"errors"
+	"os"
+	"sync"
 	"time"
-
-	_ "modernc.org/sqlite"
 )
 
+const (
+	voucherDBPath = "/data/voucher.json"
+	settingsPath  = "/data/settings.json"
+)
 
-var db *sql.DB
+// Using a mutex to prevent race conditions when reading/writing files
+var fileMutex = &sync.Mutex{}
+
+// In-memory cache for vouchers and settings
+var vouchersCache []Voucher
+var settingsCache map[string]string
 
 type Voucher struct {
 	ID         int       `json:"id"`
@@ -24,205 +34,160 @@ type Voucher struct {
 	UserMAC    string    `json:"user_mac,omitempty"`
 }
 
+// loadData reads the voucher and settings JSON files into memory.
+func loadData() error {
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
 
-func setupDatabase() error {
-	var err error
-	// Use a persistent path on OpenWrt, /data is a common choice for user data
-	db, err = sql.Open("sqlite", "/data/voucher.db")
+	// Load vouchers
+	vouchersCache = []Voucher{}
+	voucherData, err := os.ReadFile(voucherDBPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist, which is fine on first run. It will be created.
+		} else {
+			return err
+		}
+	} else {
+		if err := json.Unmarshal(voucherData, &vouchersCache); err != nil {
+			return err
+		}
+	}
+
+	// Load settings
+	settingsCache = make(map[string]string)
+	settingsData, err := os.ReadFile(settingsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist, fine on first run.
+		} else {
+			return err
+		}
+	} else {
+		if err := json.Unmarshal(settingsData, &settingsCache); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// saveData writes the in-memory caches back to their respective JSON files.
+func saveData() error {
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
+
+	// Save vouchers
+	voucherData, err := json.MarshalIndent(vouchersCache, "", "  ")
 	if err != nil {
 		return err
 	}
+	if err := os.WriteFile(voucherDBPath, voucherData, 0644); err != nil {
+		return err
+	}
 
+	// Save settings
+	settingsData, err := json.MarshalIndent(settingsCache, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(settingsPath, settingsData, 0644)
+}
 
-	createTableSQL := `CREATE TABLE IF NOT EXISTS vouchers (
-		"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-		"code" TEXT NOT NULL UNIQUE,
-		"name" TEXT,
-		"duration" INTEGER NOT NULL,
-		"expiration" DATETIME,
-		"data_limit" INTEGER,
-		"is_reusable" BOOLEAN NOT NULL,
-		"is_used" BOOLEAN NOT NULL DEFAULT 0,
-		"start_time" DATETIME,
-		"user_ip" TEXT,
-		"user_mac" TEXT
-	);
-	CREATE TABLE IF NOT EXISTS settings (
-		"key" TEXT NOT NULL PRIMARY KEY,
-		"value" TEXT NOT NULL
-	);`
-
-	_, err = db.Exec(createTableSQL)
-	return err
+func setupDatabase() error {
+	// Create the /data directory if it doesn't exist
+	if err := os.MkdirAll("/data", 0755); err != nil {
+		return err
+	}
+	// Load existing data from files into memory
+	return loadData()
 }
 
 func addVoucher(voucher Voucher) error {
-	stmt, err := db.Prepare("INSERT INTO vouchers(code, name, duration, expiration, data_limit, is_reusable) VALUES(?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return err
+	// Find the highest existing ID to auto-increment
+	maxID := 0
+	for _, v := range vouchersCache {
+		if v.ID > maxID {
+			maxID = v.ID
+		}
 	}
-	defer stmt.Close()
+	voucher.ID = maxID + 1
 
-	var expiration sql.NullTime
-	if !voucher.Expiration.IsZero() {
-		expiration.Time = voucher.Expiration
-		expiration.Valid = true
-	}
-
-	var dataLimit sql.NullInt64
-	if voucher.DataLimit > 0 {
-		dataLimit.Int64 = int64(voucher.DataLimit)
-		dataLimit.Valid = true
-	}
-
-	_, err = stmt.Exec(voucher.Code, voucher.Name, voucher.Duration, expiration, dataLimit, voucher.IsReusable)
-	return err
+	vouchersCache = append(vouchersCache, voucher)
+	return saveData()
 }
 
 func getVoucherByCode(code string) (*Voucher, error) {
-	row := db.QueryRow("SELECT id, code, name, duration, expiration, data_limit, is_reusable, is_used, start_time, user_ip, user_mac FROM vouchers WHERE code = ?", code)
-
-	var v Voucher
-	var expiration, startTime sql.NullTime
-	var dataLimit sql.NullInt64
-	var userIP, userMAC, name sql.NullString
-
-	err := row.Scan(&v.ID, &v.Code, &name, &v.Duration, &expiration, &dataLimit, &v.IsReusable, &v.IsUsed, &startTime, &userIP, &userMAC)
-	if err != nil {
-		return nil, err
+	for i, v := range vouchersCache {
+		if v.Code == code {
+			return &vouchersCache[i], nil
+		}
 	}
-
-	if expiration.Valid {
-		v.Expiration = expiration.Time
-	}
-	if startTime.Valid {
-		v.StartTime = startTime.Time
-	}
-	if dataLimit.Valid {
-		v.DataLimit = int(dataLimit.Int64)
-	}
-	if userIP.Valid {
-		v.UserIP = userIP.String
-	}
-	if userMAC.Valid {
-		v.UserMAC = userMAC.String
-	}
-
-	if name.Valid {
-		v.Name = name.String
-	} else {
-		v.Name = "" // Ensure it's an empty string if NULL
-	}
-
-	return &v, nil
+	return nil, errors.New("voucher not found")
 }
 
 func useVoucher(code, ip, mac string) error {
-	stmt, err := db.Prepare("UPDATE vouchers SET is_used = 1, start_time = ?, user_ip = ?, user_mac = ? WHERE code = ?")
+	v, err := getVoucherByCode(code)
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
 
-	_, err = stmt.Exec(time.Now(), ip, mac, code)
-	return err
+	v.IsUsed = true
+	v.StartTime = time.Now()
+	v.UserIP = ip
+	v.UserMAC = mac
+
+	return saveData()
 }
 
 func getVouchers() ([]Voucher, error) {
-	rows, err := db.Query("SELECT id, code, name, duration, expiration, data_limit, is_reusable, is_used, start_time, user_ip, user_mac FROM vouchers ORDER BY id DESC")
-	if err != nil {
-		return nil, err
+	// Return a copy to avoid external modification of the cache
+	vouchersCopy := make([]Voucher, len(vouchersCache))
+	copy(vouchersCopy, vouchersCache)
+	// reverse the slice to get the latest vouchers first
+	for i, j := 0, len(vouchersCopy)-1; i < j; i, j = i+1, j-1 {
+		vouchersCopy[i], vouchersCopy[j] = vouchersCopy[j], vouchersCopy[i]
 	}
-	defer rows.Close()
 
-	vouchers := []Voucher{}
-	for rows.Next() {
-		var v Voucher
-		var expiration, startTime sql.NullTime
-		var dataLimit sql.NullInt64
-		var userIP, userMAC, name sql.NullString
-
-		if err := rows.Scan(&v.ID, &v.Code, &name, &v.Duration, &expiration, &dataLimit, &v.IsReusable, &v.IsUsed, &startTime, &userIP, &userMAC); err != nil {
-			return nil, err
-		}
-
-		// Explicitly handle nullable fields
-		if name.Valid {
-			v.Name = name.String
-		} else {
-			v.Name = "" // Ensure it's an empty string if NULL
-		}
-
-		if expiration.Valid {
-			v.Expiration = expiration.Time
-		} else {
-			v.Expiration = time.Time{} // Ensure it's zero time if NULL
-		}
-
-		if dataLimit.Valid {
-			v.DataLimit = int(dataLimit.Int64)
-		} else {
-			v.DataLimit = 0 // Ensure it's zero if NULL
-		}
-
-		if startTime.Valid {
-			v.StartTime = startTime.Time
-		} else {
-			v.StartTime = time.Time{} // Ensure it's zero time if NULL
-		}
-
-		if userIP.Valid {
-			v.UserIP = userIP.String
-		} else {
-			v.UserIP = "" // Ensure it's an empty string if NULL
-		}
-
-		if userMAC.Valid {
-			v.UserMAC = userMAC.String
-		} else {
-			v.UserMAC = "" // Ensure it's an empty string if NULL
-		}
-		vouchers = append(vouchers, v)
-	}
-	return vouchers, nil
+	return vouchersCopy, nil
 }
 
 func deleteVoucher(id int) error {
-	stmt, err := db.Prepare("DELETE FROM vouchers WHERE id = ?")
-	if err != nil {
-		return err
+	found := false
+	var indexToDelete int
+	for i, v := range vouchersCache {
+		if v.ID == id {
+			found = true
+			indexToDelete = i
+			break
+		}
 	}
-	defer stmt.Close()
 
-	_, err = stmt.Exec(id)
-	return err
+	if !found {
+		return errors.New("voucher not found")
+	}
+
+	vouchersCache = append(vouchersCache[:indexToDelete], vouchersCache[indexToDelete+1:]...)
+	return saveData()
 }
 
 func getSetting(key string) (string, error) {
-	var value string
-	err := db.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&value)
-	if err != nil {
-		return "", err
+	value, ok := settingsCache[key]
+	if !ok {
+		return "", errors.New("setting not found")
 	}
 	return value, nil
 }
 
 func setSetting(key, value string) error {
-	stmt, err := db.Prepare("INSERT OR REPLACE INTO settings(key, value) VALUES(?, ?)")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(key, value)
-	return err
+	settingsCache[key] = value
+	return saveData()
 }
 
 func initializeAdminPassword(defaultPass string) error {
-	_, err := getSetting("admin_password")
-	if err == sql.ErrNoRows {
-		// Password not set, set default
+	if _, err := getSetting("admin_password"); err != nil {
+		// If the password is not found, set the default one.
 		return setSetting("admin_password", defaultPass)
 	}
-	return err // Return existing error or nil if password already exists
+	// Password already exists, no error.
+	return nil
 }

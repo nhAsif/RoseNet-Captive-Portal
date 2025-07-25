@@ -14,6 +14,10 @@ go build -o ../voucher_server -ldflags="-s -w"
 :: Return to the original directory
 popd
 
+:: Compress the binary with UPX
+echo Compressing with UPX...
+upx --best --lzma voucher_server
+
 echo.
 echo Build complete! 
 echo The binary 'voucher_server' has been created in the root project directory.
