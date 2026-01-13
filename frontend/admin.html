@@ -1,150 +1,158 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - WiFi Vouchers</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Admin Panel - RoseNet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Rose Pine Palette - Pink Theme */
-        :root {
-            --background: #232136; /* Base */
-            --foreground: #e0def4; /* Text */
-            --primary: #eb6f92;    /* Rose */
-            --secondary: #f6c177;  /* Gold */
-            --muted: #6e6a86;      /* Muted */
-            --subtle: #908caa;     /* Subtle */
-            --accent: #3e8fb0;     /* Foam */
-            --error: #eb0000;      /* Love */
-        }
-        body {
-            background-color: var(--background);
-            color: var(--foreground);
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .title { color: var(--primary); }
-        .input-field { background-color: var(--muted); border-color: var(--subtle); color: var(--foreground); }
-        .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
-        .btn { background-color: var(--primary); color: var(--background); transition: background-color 0.3s; }
-        .btn:hover { background-color: #c55f7a; }
-        .btn-danger { background-color: var(--error); }
-        .btn-danger:hover { background-color: #c70000; }
-        .table-header { background-color: #2a273f; }
-        .table-row:nth-child(even) { background-color: #2a273f; }
-        .modal-content { background-color: #2a273f; }
-
-        @media (max-width: 768px) {
-            .table-header th, .table-row td {
-                padding: 0.5rem;
-                font-size: 0.875rem;
-            }
-            #addVoucherForm input, #addVoucherForm select, #addVoucherForm button {
-                padding: 0.75rem;
-                font-size: 0.9rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .table-header th, .table-row td {
-                padding: 0.25rem;
-                font-size: 0.75rem;
-            }
-            #addVoucherForm input, #addVoucherForm select, #addVoucherForm button {
-                padding: 0.6rem;
-                font-size: 0.85rem;
-            }
-            .title { font-size: 2rem; }
-            h2 { font-size: 1.5rem; }
-        }
+        /* A little bit of custom styling for a better feel */
+        .btn { @apply font-semibold py-2 px-4 rounded-md transition-colors duration-200; }
+        .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700; }
+        .btn-danger { @apply bg-red-600 text-white hover:bg-red-700; }
+        .input-field { @apply w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500; }
+        .card { @apply bg-white p-6 rounded-xl shadow-md; }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 </head>
-<body>
-    <header style="background-color: var(--background); color: var(--primary); padding: 1rem; text-align: center; font-size: 1.5rem; font-weight: bold; border-bottom: 1px solid var(--subtle); display: flex; justify-content: space-between; align-items: center;">
-        <span>Openwrt Voucher system</span>
-        <button id="logoutButton" class="px-4 py-2 text-sm font-bold rounded-md btn">Logout</button>
-    </header>
+<body class="h-full">
 
-    <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; margin-top: 2rem;">
-        <!-- Login View -->
-        <div id="loginView" class="max-w-md mx-auto px-4 py-8 text-center rounded-lg shadow-xl modal-content">
-            <h1 class="text-3xl font-bold mb-6 title">Admin Login</h1>
-            <form id="loginForm" class="space-y-4">
-                <input type="password" id="password" placeholder="Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                <button type="submit" class="w-full p-3 font-bold rounded-md btn focus:outline-none">Login</button>
-            </form>
-            <p id="loginError" class="mt-4 text-red-400"></p>
+    <!-- Login View -->
+    <div id="loginView" class="flex min-h-full flex-col justify-center items-center px-6 py-12 lg:px-8">
+        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+            <h2 class="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-slate-900">RoseNet Admin Panel</h2>
+            <h3 class="mt-2 text-center text-md leading-9 tracking-tight text-slate-600">Sign in to your account</h3>
         </div>
 
-        <!-- Admin Dashboard View -->
-        <div id="adminView" class="hidden w-full lg:max-w-screen-lg mx-auto px-4 py-8">
-            <h1 class="text-4xl font-bold mb-8 title">Voucher Management</h1>
-
-            <!-- Add Voucher Form -->
-            <div class="p-6 mb-8 rounded-lg modal-content">
-                <h2 class="text-2xl font-bold mb-4" style="color: var(--secondary);">Add New Voucher</h2>
-                <form id="addVoucherForm" class="grid grid-cols-1 gap-4 md:grid-cols-4">
-                    <input type="number" id="duration" placeholder="Duration" class="p-2 rounded-md input-field" required>
-                    <select id="durationUnit" class="p-2 rounded-md input-field">
-                        <option value="minutes">Minutes</option>
-                        <option value="days">Days</option>
-                        <option value="months">Months</option>
-                    </select>
-                    <input type="text" id="voucherName" placeholder="Voucher Name (optional)" class="p-2 rounded-md input-field">
-                    <input type="text" id="code" placeholder="Custom Code (optional)" class="p-2 rounded-md input-field">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="isReusable" class="w-4 h-4 mr-2">
-                        <label for="isReusable">Reusable</label>
+        <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="password" class="block text-sm font-medium leading-6 text-slate-900">Password</label>
+                    <div class="mt-2">
+                        <input type="password" id="password" required class="input-field">
                     </div>
-                    <button type="submit" class="p-2 font-bold rounded-md btn">Add Voucher</button>
-                </form>
-            </div>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary w-full">Sign in</button>
+                </div>
+                <p id="loginError" class="mt-2 text-center text-sm text-red-600"></p>
+            </form>
+        </div>
+    </div>
 
-            <!-- Voucher List -->
-            <div>
-                <h2 class="text-2xl font-bold mb-4" style="color: var(--secondary);">Existing Vouchers</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-left rounded-lg">
-                        <thead class="table-header">
-                            <tr>
-                                <th class="p-3">Name</th>
-                                <th class="p-3">Code</th>
-                                <th class="p-3">Duration</th>
-                                <th class="p-3">Status</th>
-                                <th class="p-3">Used By</th>
-                                <th class="p-3">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="voucherList">
-                            <!-- Vouchers will be dynamically inserted here -->
-                        </tbody>
-                    </table>
+    <!-- Admin Dashboard View -->
+    <div id="adminView" class="hidden">
+        <div class="min-h-full">
+            <!-- Sidebar -->
+            <div class="fixed inset-y-0 flex w-64 flex-col bg-white shadow-lg">
+                <div class="flex min-h-0 flex-1 flex-col border-r border-slate-200">
+                    <div class="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
+                        <div class="flex flex-shrink-0 items-center px-4">
+                            <h1 class="text-2xl font-bold text-blue-600">RoseNet Admin</h1>
+                        </div>
+                        <nav class="mt-5 flex-1 space-y-1 bg-white px-2">
+                            <!-- Can add nav links here in the future if needed -->
+                        </nav>
+                    </div>
+                    <div class="flex flex-shrink-0 border-t border-slate-200 p-4">
+                        <button id="logoutButton" class="btn btn-primary w-full">Logout</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Change Password Form -->
-            <div class="p-6 mt-8 rounded-lg modal-content">
-                <h2 class="text-2xl font-bold mb-4" style="color: var(--secondary);">Change Admin Password</h2>
-                <form id="changePasswordForm" class="space-y-4">
-                    <input type="password" id="oldPassword" placeholder="Current Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                    <input type="password" id="newPassword" placeholder="New Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                    <input type="password" id="confirmNewPassword" placeholder="Confirm New Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                    <button type="submit" class="w-full p-3 font-bold rounded-md btn focus:outline-none">Change Password</button>
-                </form>
-                <p id="passwordChangeMessage" class="mt-4 text-red-400"></p>
+            <!-- Main Content -->
+            <div class="flex flex-1 flex-col pl-64">
+                <main class="flex-1">
+                    <div class="py-8 px-4 sm:px-6 lg:px-8">
+                        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+
+                        <!-- Forms Grid -->
+                        <div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+                            <!-- Add Voucher Card -->
+                            <div class="card">
+                                <h2 class="text-xl font-semibold mb-4 text-slate-800">Add New Voucher</h2>
+                                <form id="addVoucherForm" class="space-y-4">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="duration" class="block text-sm font-medium text-slate-700">Duration</label>
+                                            <input type="number" id="duration" placeholder="eg. 24" class="input-field mt-1" required>
+                                        </div>
+                                        <div>
+                                            <label for="durationUnit" class="block text-sm font-medium text-slate-700">Unit</label>
+                                            <select id="durationUnit" class="input-field mt-1">
+                                                <option value="minutes">Minutes</option>
+                                                <option value="days" selected>Days</option>
+                                                <option value="months">Months</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="voucherName" class="block text-sm font-medium text-slate-700">Voucher Name (Optional)</label>
+                                        <input type="text" id="voucherName" placeholder="eg. Guest Pass" class="input-field mt-1">
+                                    </div>
+                                    <div>
+                                        <label for="code" class="block text-sm font-medium text-slate-700">Custom Code (Optional)</label>
+                                        <input type="text" id="code" placeholder="Leave blank for random" class="input-field mt-1">
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="isReusable" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                        <label for="isReusable" class="ml-2 block text-sm text-slate-900">Reusable</label>
+                                    </div>
+                                    <div class="pt-2">
+                                        <button type="submit" class="btn btn-primary w-full">Add Voucher</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Change Password Card -->
+                            <div class="card">
+                                <h2 class="text-xl font-semibold mb-4 text-slate-800">Change Admin Password</h2>
+                                <form id="changePasswordForm" class="space-y-4">
+                                     <div>
+                                        <label for="oldPassword" class="block text-sm font-medium text-slate-700">Current Password</label>
+                                        <input type="password" id="oldPassword" class="input-field mt-1" required>
+                                    </div>
+                                     <div>
+                                        <label for="newPassword" class="block text-sm font-medium text-slate-700">New Password</label>
+                                        <input type="password" id="newPassword" class="input-field mt-1" required>
+                                    </div>
+                                     <div>
+                                        <label for="confirmNewPassword" class="block text-sm font-medium text-slate-700">Confirm New Password</label>
+                                        <input type="password" id="confirmNewPassword" class="input-field mt-1" required>
+                                    </div>
+                                    <div class="pt-2">
+                                        <button type="submit" class="btn btn-primary w-full">Change Password</button>
+                                    </div>
+                                    <p id="passwordChangeMessage" class="text-sm"></p>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Voucher List Card -->
+                        <div class="mt-8 card overflow-x-auto">
+                            <h2 class="text-xl font-semibold mb-4 text-slate-800">Existing Vouchers</h2>
+                            <table class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Code</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Duration</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Used By (MAC / IP)</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="voucherList" class="bg-white divide-y divide-slate-200">
+                                    <!-- Vouchers will be dynamically inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </main>
             </div>
         </div>
     </div>
 
     <script src="admin.js"></script>
-    <footer style="background-color: var(--background); color: var(--primary); padding: 1rem; text-align: center; font-size: 0.9rem; margin-top: 2rem; border-top: 1px solid var(--subtle);">
-        Made with ❤️ by [.nhAsif] • powered by Go
-    </footer>
 </body>
 </html>

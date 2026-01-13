@@ -81,39 +81,53 @@ if [ -f /etc/config/nodogsplash ]; then
     cp /etc/config/nodogsplash /etc/config/nodogsplash.bak
 fi
 
-# Overwrite the config file directly. Given the uci issues, this is the most reliable method.
+# Overwrite the config file directly.
 echo "Creating NoDogSplash configuration file..."
 cat << 'EOF' > /etc/config/nodogsplash
 config nodogsplash
-  option enabled '1'
-  option fwhook_enabled '1'
-  option gatewayinterface 'br-lan'
-  option maxclients '250'
-  option binauth '/opt/voucher/binauth.sh'
-  option client_idle_timeout '2'
-  list preauthenticated_users 'allow tcp port 7891'
-  list preauthenticated_users 'allow tcp port 53'
-  list preauthenticated_users 'allow udp port 53'
-  list authenticated_users 'allow all'
-  option splashpage 'splash.html'
-  option preauthidletimeout '3'
-  option authidletimeout '1'
-  option checkinterval '20'
-  list authenticated_users 'allow all'
-  list preauthenticated_users 'allow tcp port 53'
-  list preauthenticated_users 'allow udp port 53'
-  list preauthenticated_users 'allow tcp port 7891'
-  list preauthenticated_users 'allow udp port 7891'
-  list users_to_router 'allow tcp port 22'
-  list users_to_router 'allow tcp port 23'
-  list users_to_router 'allow tcp port 53'
-  list users_to_router 'allow udp port 53'
-  list users_to_router 'allow udp port 67'
-  list users_to_router 'allow tcp port 80'
-  list users_to_router 'allow tcp port 7891'
-  list trustedmac 'ac:e0:10:81:1c:11'
-  list trustedmac 'b8:c3:85:7f:68:44'
-  list trustedmac 'd0:9c:7a:d6:5a:b8'
+    option enabled '1'
+    option fwhook_enabled '1'
+    option gatewayinterface 'br-lan'
+    option gatewayname 'RoseNet Hotspot'
+    option maxclients '250'
+    option binauth '/opt/voucher/binauth.sh'
+    option splashpage 'splash.html'
+
+    # Set a long idle timeout (12 hours). The voucher's own duration is the real limit.
+    # This prevents users from being deauthenticated just because they are idle for a few minutes.
+    option client_idle_timeout '720'
+
+    # Let the binauth script handle re-authentication checks once a day.
+    # This is more efficient than checking every minute.
+    option authidletimeout '1440'
+
+    # How long a client can be on the splash page before being deauthed (3 minutes).
+    option preauthidletimeout '180'
+
+    # How often to check for timeouts. Must be less than half of the shortest timeout.
+    option checkinterval '60'
+
+    # Rules for users who have NOT authenticated yet.
+    # Allow DNS and access to our voucher server.
+    list preauthenticated_users 'allow tcp port 53'
+    list preauthenticated_users 'allow udp port 53'
+    list preauthenticated_users 'allow tcp port 7891'
+
+    # Rules for users who HAVE authenticated.
+    list authenticated_users 'allow all'
+
+    # Rules for user access to the router itself.
+    # Allow SSH, DNS, DHCP, and access to the web server and voucher server.
+    # Telnet (port 23) has been removed for security.
+    list users_to_router 'allow tcp port 22'
+    list users_to_router 'allow tcp port 53'
+    list users_to_router 'allow udp port 53'
+    list users_to_router 'allow udp port 67'
+    list users_to_router 'allow tcp port 80'
+    list users_to_router 'allow tcp port 7891'
+
+    # Add your own device MAC addresses here if you want them to bypass the portal.
+    # list trustedmac 'AA:BB:CC:DD:EE:FF'
 EOF
 
 
@@ -122,14 +136,65 @@ echo "Creating custom NoDogSplash splash page..."
 mkdir -p /etc/nodogsplash/htdocs/
 cat << 'EOF' > /etc/nodogsplash/htdocs/splash.html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Connecting...</title>
-    <meta http-equiv="refresh" content="0; url=http://192.168.100.1:7891/?ip=$clientip&amp;mac=$clientmac&amp;token=$tok" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to RoseNet Wi-Fi</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        h1 {
+            color: #1d4ed8; /* blue-700 */
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        p {
+            color: #4b5563; /* gray-600 */
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+        .button {
+            display: inline-block;
+            background-color: #2563eb; /* blue-600 */
+            color: #ffffff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 1.125rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #1d4ed8; /* blue-700 */
+        }
+    </style>
 </head>
 <body>
-    <p>Please wait, you are being redirected to the login page...</p>
+    <div class="container">
+        <h1>Welcome to RoseNet Wi-Fi</h1>
+        <p>To get internet access, please proceed to the login page.</p>
+        <a class="button" href="http://192.168.100.1:7891/?ip=$clientip&mac=$clientmac&token=$tok">
+            Proceed to Login
+        </a>
+    </div>
 </body>
 </html>
 EOF
