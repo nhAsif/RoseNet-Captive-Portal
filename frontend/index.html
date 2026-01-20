@@ -163,7 +163,7 @@
 
       const urlParams = new URLSearchParams(window.location.search);
       const clientIP = urlParams.get('ip');
-      const clientMAC = url.get('mac');
+      const clientMAC = urlParams.get('mac');
       const token = urlParams.get('token');
 
       if (!clientIP || !clientMAC || !token) {

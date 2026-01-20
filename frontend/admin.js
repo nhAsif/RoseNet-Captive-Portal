@@ -1,6 +1,76 @@
 document.addEventListener('DOMContentLoaded', function() {
     feather.replace();
 
+    // --- DOM Elements ---
+    const loginView = document.getElementById('loginView');
+    const appView = document.getElementById('app');
+    const loginForm = document.getElementById('loginForm');
+    const loginError = document.getElementById('loginError');
+    const logoutButton = document.getElementById('logoutButton');
+    const voucherList = document.getElementById('voucherList');
+    const addVoucherForm = document.getElementById('addVoucherForm');
+    const changePasswordForm = document.getElementById('changePasswordForm');
+    const passwordChangeMessage = document.getElementById('passwordChangeMessage');
+    const settingsButton = document.getElementById('settingsButton');
+
+    // Chart variables
+    let voucherSalesChart, voucherStatusChart, trafficByZoneChart;
+    
+    // Set initial state explicitly to prevent flashes of content
+    appView.style.display = 'none';
+    loginView.style.display = 'flex';
+
+    // --- View Management ---
+    function showAppView() {
+        appView.style.display = 'flex';
+        loginView.style.display = 'none';
+        loadInitialData();
+        setupNavLinks();
+    }
+
+    function showLoginView() {
+        loginView.style.display = 'flex';
+        appView.style.display = 'none';
+    }
+    
+    // --- Navigation ---
+    function setupNavLinks() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const contentViews = document.querySelectorAll('.content-view');
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const view = link.getAttribute('data-view');
+
+                navLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+
+                contentViews.forEach(v => v.classList.remove('active'));
+                document.getElementById(view).classList.add('active');
+
+                // Load data for the specific view
+                if (view === 'vouchers') {
+                    loadVouchers();
+                } else if (view === 'dashboard') {
+                    loadDashboardData();
+                }
+            });
+        });
+
+        settingsButton.addEventListener('click', () => {
+            const view = 'settings';
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            contentViews.forEach(v => v.classList.remove('active'));
+            document.getElementById(view).classList.add('active');
+        });
+    }
+
+    // --- Data Loading ---
+    function loadInitialData() {
+        loadDashboardData();
+    }
+
     // --- API & Data Handling ---
     async function handleLogin(e) {
         e.preventDefault();
@@ -17,7 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
                 throw new Error(data.error || 'Login failed');
             }
-            // The cookie is set by the server on successful login
             showAppView();
         } catch (error) {
             loginError.textContent = error.message;
@@ -41,22 +110,20 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const data = await response.json();
 
-            // Populate metrics
             document.getElementById('total-revenue').textContent = `$${(data.total_revenue || 0).toLocaleString()}`;
             document.getElementById('revenue-trend').textContent = `+${(data.revenue_trend || 0)}%`;
             document.getElementById('active-vouchers').textContent = data.active_vouchers || 0;
-            document.getElementById('data-consumed').textContent = `${data.data_consumed || 0} GB`;
+            document.getElementById('data-consumed').textContent = `${(data.data_consumed || 0)} GB`;
             document.getElementById('live-users').textContent = data.live_users || 0;
 
-            // Populate Top Selling Plans
             const topPlansList = document.getElementById('top-plans-list');
+            topPlansList.innerHTML = '';
             if (data.top_plans && data.top_plans.length > 0) {
                  topPlansList.innerHTML = data.top_plans.map(plan => `<li>${plan.name} (${plan.sales} sold)</li>`).join('');
             } else {
                 topPlansList.innerHTML = '<li>No plan sales data available.</li>';
             }
 
-            // Render charts
             if (data.sales_stats) renderVoucherSalesChart(data.sales_stats);
             if (data.voucher_status) renderVoucherStatusChart(data.voucher_status);
             if (data.traffic_by_zone) renderTrafficByZoneChart(data.traffic_by_zone);
@@ -151,9 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(err.error || 'Failed to add voucher');
             }
             
-            const newVoucher = await response.json();
-            
-            // Add to table (or reload list)
+            await response.json();
             loadVouchers();
             addVoucherForm.reset();
 
@@ -294,4 +359,26 @@ document.addEventListener('DOMContentLoaded', function() {
         if (minutes < 1440) return `${(minutes / 60).toFixed(1)} hours`;
         return `${(minutes / 1440).toFixed(1)} days`;
     }
+
+    // --- Initialization ---
+    async function initializeApp() {
+        try {
+            // Use a lightweight endpoint to check for a valid session
+            const response = await fetch('/admin/stats'); 
+            if (response.ok) {
+                showAppView();
+            } else { // Catches 401 Unauthorized
+                showLoginView();
+            }
+        } catch (e) { // Catches network errors
+            showLoginView();
+        }
+    }
+
+    loginForm.addEventListener('submit', handleLogin);
+    logoutButton.addEventListener('click', handleLogout);
+    addVoucherForm.addEventListener('submit', handleAddVoucher);
+    changePasswordForm.addEventListener('submit', handleChangePassword);
+    
+    initializeApp();
 });
