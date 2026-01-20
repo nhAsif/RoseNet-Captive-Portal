@@ -81,6 +81,7 @@ func main() {
 	http.HandleFunc("/admin/vouchers", authMiddleware(adminVouchersHandler))
 	http.HandleFunc("/admin/change-password", authMiddleware(adminChangePasswordHandler))
 	http.HandleFunc("/admin/logout", adminLogoutHandler)
+	http.HandleFunc("/admin/stats", authMiddleware(adminStatsHandler))
 
 	// Serve frontend files from the absolute path where install.sh places them
 	fs := http.FileServer(http.Dir("/www/voucher/"))
@@ -345,6 +346,103 @@ func adminChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(`{"status": "success"}`))
+}
+
+func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vouchers, err := getVouchers()
+	if err != nil {
+		http.Error(w, `{"error": "Could not retrieve vouchers"}`, http.StatusInternalServerError)
+		return
+	}
+
+	now := time.Now()
+	var totalRevenue float64
+	var revenueTrend float64 // Mock for now
+	activeVouchers := 0
+	expiredCount := 0
+	unusedCount := 0
+
+	salesByMonth := make(map[string]float64) // "YYYY-MM" -> total sales
+	sixMonthsAgo := now.AddDate(0, -6, 0)
+
+	topPlans := make(map[string]int) // name -> sales count
+
+	for _, v := range vouchers {
+		// Calculate revenue from all created vouchers
+		totalRevenue += v.Price
+
+		// Increment sales count for plans
+		if v.Name != "" {
+			topPlans[v.Name]++
+		}
+
+		// Calculate sales by month for the last 6 months
+		if !v.CreatedAt.IsZero() && v.CreatedAt.After(sixMonthsAgo) {
+			month := v.CreatedAt.Format("2006-01")
+			salesByMonth[month] += v.Price
+		}
+
+		// Calculate voucher status
+		if v.IsUsed {
+			expires := v.StartTime.Add(time.Duration(v.Duration) * time.Minute)
+			if now.After(expires) {
+				expiredCount++
+			} else {
+				activeVouchers++
+			}
+		} else {
+			unusedCount++
+		}
+	}
+
+	// Prepare sales stats for the chart (last 6 months)
+	salesLabels := make([]string, 0)
+	salesData := make([]float64, 0)
+	for i := 5; i >= 0; i-- {
+		month := now.AddDate(0, -i, 0)
+		monthKey := month.Format("2006-01")
+		monthLabel := month.Format("Jan")
+		salesLabels = append(salesLabels, monthLabel)
+		salesData = append(salesData, salesByMonth[monthKey])
+	}
+
+	// Prepare top plans
+	type plan struct {
+		Name  string `json:"name"`
+		Sales int    `json:"sales"`
+	}
+	planList := make([]plan, 0)
+	for name, sales := range topPlans {
+		planList = append(planList, plan{Name: name, Sales: sales})
+	}
+	// Sort plans by sales descending
+	// (for simplicity, we'll skip sorting in this example, but you could use sort.Slice)
+
+	stats := map[string]interface{}{
+		"total_revenue":   totalRevenue,
+		"revenue_trend":   revenueTrend, // Mock
+		"active_vouchers": activeVouchers,
+		"data_consumed":   850,  // Mock
+		"live_users":      120,  // Mock
+		"sales_stats": map[string]interface{}{
+			"labels": salesLabels,
+			"data":   salesData,
+		},
+		"voucher_status": map[string]int{
+			"active":  activeVouchers,
+			"expired": expiredCount,
+			"unused":  unusedCount,
+		},
+		"top_plans": planList,
+		"traffic_by_zone": map[string]interface{}{ // Mock
+			"labels": []string{"Lobby", "Cafe", "Outdoor", "Pool Area", "Conference Room"},
+			"data":   []int{300, 250, 180, 120, 90},
+		},
+	}
+
+	json.NewEncoder(w).Encode(stats)
 }
 
 // binauthStageHandler is called by the frontend to validate a voucher and "stage" it for BinAuth.

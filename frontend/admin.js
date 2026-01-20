@@ -1,21 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const loginView = document.getElementById('loginView');
-    const adminView = document.getElementById('adminView');
-    const loginForm = document.getElementById('loginForm');
-    const loginError = document.getElementById('loginError');
-    const addVoucherForm = document.getElementById('addVoucherForm');
-    const voucherList = document.getElementById('voucherList');
-    const changePasswordForm = document.getElementById('changePasswordForm');
-    const passwordChangeMessage = document.getElementById('passwordChangeMessage');
-    const logoutButton = document.getElementById('logoutButton');
+    feather.replace();
 
-    // Check if already logged in (e.g. cookie exists)
-    // A simple check without verifying the cookie's validity on the server side for this example.
-    if (document.cookie.includes('voucher-admin-session=admin-is-logged-in')) {
-        showAdminView();
-    }
-
-    loginForm.addEventListener('submit', async function(e) {
+    // --- API & Data Handling ---
+    async function handleLogin(e) {
         e.preventDefault();
         const password = document.getElementById('password').value;
         loginError.textContent = '';
@@ -24,44 +11,134 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: password })
+                body: JSON.stringify({ password })
             });
-
             if (!response.ok) {
                 const data = await response.json();
                 throw new Error(data.error || 'Login failed');
             }
-            showAdminView();
+            // The cookie is set by the server on successful login
+            showAppView();
         } catch (error) {
             loginError.textContent = error.message;
         }
-    });
+    }
+    
+    async function handleLogout() {
+         try {
+            await fetch('/admin/logout', { method: 'POST' });
+        } finally {
+            showLoginView();
+        }
+    }
 
-    addVoucherForm.addEventListener('submit', async function(e) {
+    // --- Dashboard ---
+    async function loadDashboardData() {
+        try {
+            const response = await fetch('/admin/stats');
+            if (response.status === 401) { return handleLogout(); }
+            if (!response.ok) throw new Error('Failed to load dashboard stats');
+            
+            const data = await response.json();
+
+            // Populate metrics
+            document.getElementById('total-revenue').textContent = `$${(data.total_revenue || 0).toLocaleString()}`;
+            document.getElementById('revenue-trend').textContent = `+${(data.revenue_trend || 0)}%`;
+            document.getElementById('active-vouchers').textContent = data.active_vouchers || 0;
+            document.getElementById('data-consumed').textContent = `${data.data_consumed || 0} GB`;
+            document.getElementById('live-users').textContent = data.live_users || 0;
+
+            // Populate Top Selling Plans
+            const topPlansList = document.getElementById('top-plans-list');
+            if (data.top_plans && data.top_plans.length > 0) {
+                 topPlansList.innerHTML = data.top_plans.map(plan => `<li>${plan.name} (${plan.sales} sold)</li>`).join('');
+            } else {
+                topPlansList.innerHTML = '<li>No plan sales data available.</li>';
+            }
+
+            // Render charts
+            if (data.sales_stats) renderVoucherSalesChart(data.sales_stats);
+            if (data.voucher_status) renderVoucherStatusChart(data.voucher_status);
+            if (data.traffic_by_zone) renderTrafficByZoneChart(data.traffic_by_zone);
+
+        } catch (error) {
+            console.error("Failed to load dashboard data:", error);
+        }
+    }
+
+    // --- Voucher Management ---
+    async function loadVouchers() {
+        try {
+            const response = await fetch('/admin/vouchers');
+            if (response.status === 401) { return handleLogout(); }
+            if (!response.ok) throw new Error('Failed to load vouchers');
+            
+            const vouchers = await response.json();
+            voucherList.innerHTML = '';
+            if (vouchers) {
+                vouchers.sort((a, b) => b.id - a.id).forEach(addVoucherToTable);
+            }
+        } catch (error) {
+            console.error(error.message);
+        }
+    }
+
+    function addVoucherToTable(voucher) {
+        const row = document.createElement('tr');
+        row.setAttribute('data-id', voucher.id);
+
+        let status, usedBy;
+        if (voucher.is_used) {
+            const startTime = new Date(voucher.start_time);
+            const expires = new Date(startTime.getTime() + voucher.duration * 60000);
+            if (new Date() > expires) {
+                status = '<span class="status-chip status-expired">Expired</span>';
+            } else {
+                status = `<span class="status-chip status-active">Active</span>`;
+            }
+            usedBy = voucher.user_mac || 'N/A';
+        } else {
+            status = '<span class="status-chip status-unused">Unused</span>';
+            usedBy = '—';
+        }
+
+        row.innerHTML = `
+            <td>${voucher.name || 'N/A'}</td>
+            <td>${voucher.code}</td>
+            <td>${formatDuration(voucher.duration)}</td>
+            <td>$${(voucher.price || 0).toFixed(2)}</td>
+            <td>${status}</td>
+            <td>${usedBy}</td>
+            <td>
+                <button class="action-button" onclick="deleteVoucher(${voucher.id})">
+                    <i data-feather="trash-2"></i>
+                </button>
+            </td>
+        `;
+        voucherList.appendChild(row);
+        feather.replace();
+    }
+    
+    async function handleAddVoucher(e) {
         e.preventDefault();
         const duration = parseInt(document.getElementById('duration').value, 10);
         const durationUnit = document.getElementById('durationUnit').value;
         const code = document.getElementById('code').value.trim();
         const voucherName = document.getElementById('voucherName').value.trim();
+        const price = parseFloat(document.getElementById('price').value) || 0;
         const isReusable = document.getElementById('isReusable').checked;
 
         let durationInMinutes = duration;
-        if (durationUnit === 'days') {
-            durationInMinutes = duration * 24 * 60;
-        } else if (durationUnit === 'months') {
-            durationInMinutes = duration * 30 * 24 * 60; // Assuming 30 days per month
-        }
+        if (durationUnit === 'days') durationInMinutes = duration * 24 * 60;
+        else if (durationUnit === 'months') durationInMinutes = duration * 30 * 24 * 60;
 
         const voucherData = {
             duration: durationInMinutes,
-            is_reusable: isReusable
+            is_reusable: isReusable,
+            price: price,
+            name: voucherName,
+            ...(code && { code })
         };
-        if (code) {
-            voucherData.code = code;
-        }
-        if (voucherName) {
-            voucherData.name = voucherName;
-        }
 
         try {
             const response = await fetch('/admin/add', {
@@ -69,38 +146,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(voucherData)
             });
-            const newVoucher = await response.json();
             if (!response.ok) {
-                throw new Error(newVoucher.error || 'Failed to add voucher');
+                const err = await response.json();
+                throw new Error(err.error || 'Failed to add voucher');
             }
-            addVoucherToTable(newVoucher);
+            
+            const newVoucher = await response.json();
+            
+            // Add to table (or reload list)
+            loadVouchers();
             addVoucherForm.reset();
+
         } catch (error) {
             alert(error.message);
         }
-    });
-
-    function showAdminView() {
-        loginView.classList.add('hidden');
-        adminView.classList.remove('hidden');
-        loadVouchers();
     }
 
-    changePasswordForm.addEventListener('submit', async function(e) {
+    window.deleteVoucher = async function(id) {
+        if (!confirm('Are you sure you want to delete this voucher?')) return;
+
+        try {
+            const response = await fetch('/admin/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to delete voucher');
+            }
+            document.querySelector(`tr[data-id='${id}']`).remove();
+        } catch (error) {
+            alert(error.message);
+        }
+    };
+
+    // --- Settings ---
+    async function handleChangePassword(e) {
         e.preventDefault();
         passwordChangeMessage.textContent = '';
-
         const oldPassword = document.getElementById('oldPassword').value;
         const newPassword = document.getElementById('newPassword').value;
         const confirmNewPassword = document.getElementById('confirmNewPassword').value;
 
-        if (newPassword === '') {
-            passwordChangeMessage.textContent = 'New password cannot be empty.';
-            return;
-        }
-
         if (newPassword !== confirmNewPassword) {
             passwordChangeMessage.textContent = 'New passwords do not match.';
+            passwordChangeMessage.style.color = '#EF4444';
             return;
         }
 
@@ -110,114 +201,97 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
             });
-
             const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to change password');
-            }
-
-            passwordChangeMessage.style.color = 'var(--primary)';
+            if (!response.ok) throw new Error(data.error || 'Failed to change password');
+            
             passwordChangeMessage.textContent = 'Password changed successfully!';
+            passwordChangeMessage.style.color = '#10B981';
             changePasswordForm.reset();
         } catch (error) {
-            passwordChangeMessage.style.color = 'var(--error)';
             passwordChangeMessage.textContent = error.message;
-        }
-    });
-
-    async function loadVouchers() {
-        try {
-            const response = await fetch('/admin/vouchers');
-             if (response.status === 401) {
-                // Session expired or invalid, redirect to login
-                loginView.classList.remove('hidden');
-                adminView.classList.add('hidden');
-                // Clear the invalid cookie
-                document.cookie = "voucher-admin-session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                return;
-            }
-            const vouchers = await response.json();
-            if (!response.ok) {
-                throw new Error(vouchers.error || 'Failed to load vouchers');
-            }
-            voucherList.innerHTML = '';
-            if (vouchers) {
-                vouchers.forEach(addVoucherToTable);
-            }
-        } catch (error) {
-            alert(error.message);
+            passwordChangeMessage.style.color = '#EF4444';
         }
     }
 
-    function addVoucherToTable(voucher) {
-        const row = document.createElement('tr');
-        row.className = 'table-row';
-        row.setAttribute('data-id', voucher.id);
-
-        let status = '';
-        if (voucher.is_used) {
-            const startTime = new Date(voucher.start_time);
-            const expires = new Date(startTime.getTime() + voucher.duration * 60000);
-            if (new Date() > expires) {
-                status = '<span class="text-gray-500">Expired</span>';
-            } else {
-                status = `<span class="text-green-400">Active (expires ${expires.toLocaleTimeString()})</span>`;
+    // --- Chart Rendering ---
+    function renderVoucherSalesChart(data) {
+        const ctx = document.getElementById('voucherSalesChart').getContext('2d');
+        if (voucherSalesChart) voucherSalesChart.destroy();
+        voucherSalesChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Voucher Sales',
+                    data: data.data,
+                    backgroundColor: 'rgba(144, 202, 249, 0.6)',
+                    borderColor: 'rgba(144, 202, 249, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } },
+                plugins: { legend: { display: false } }
             }
-        } else {
-            status = '<span class="text-yellow-400">Not Used</span>';
-        }
-
-        const usedBy = voucher.is_used ? `${voucher.user_mac || 'N/A'} (${voucher.user_ip || 'N/A'})` : '—';
-        
-        row.innerHTML = `
-            <td class="p-3 font-mono">${voucher.name || 'N/A'}</td>
-            <td class="p-3 font-mono">${voucher.code}</td>
-            <td class="p-3">${voucher.duration} min</td>
-            <td class="p-3">${status}</td>
-            <td class="p-3 font-mono">${usedBy}</td>
-            <td class="p-3">
-                <button class="px-3 py-1 text-sm font-bold rounded-md btn-danger" onclick="deleteVoucher(${voucher.id})">Delete</button>
-            </td>
-        `;
-        voucherList.prepend(row); // Add new vouchers to the top
+        });
     }
 
-    window.deleteVoucher = async function(id) {
-        if (!confirm('Are you sure you want to delete this voucher?')) {
-            return;
-        }
-
-        try {
-            const response = await fetch('/admin/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id })
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to delete voucher');
+    function renderVoucherStatusChart(data) {
+        const ctx = document.getElementById('voucherStatusChart').getContext('2d');
+        if (voucherStatusChart) voucherStatusChart.destroy();
+        voucherStatusChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Active', 'Expired', 'Unused'],
+                datasets: [{
+                    data: [data.active, data.expired, data.unused],
+                    backgroundColor: ['#A8D8EA', '#F4B8C3', '#F7E4A4'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom' } }
             }
-            document.querySelector(`tr[data-id='${id}']`).remove();
-        } catch (error) {
-            alert(error.message);
-        }
+        });
     }
 
-    logoutButton.addEventListener('click', async function() {
-        try {
-            const response = await fetch('/admin/logout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (response.ok) {
-                window.location.reload(); // Reload to show login page
-            } else {
-                const data = await response.json();
-                alert(data.error || 'Logout failed');
+    function renderTrafficByZoneChart(data) {
+        const ctx = document.getElementById('trafficByZoneChart').getContext('2d');
+        if (trafficByZoneChart) trafficByZoneChart.destroy();
+        trafficByZoneChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Traffic',
+                    data: data.data,
+                    backgroundColor: 'rgba(144, 202, 249, 0.2)',
+                    borderColor: 'rgba(144, 202, 249, 1)',
+                    pointBackgroundColor: 'rgba(144, 202, 249, 1)',
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    r: {
+                        angleLines: { color: '#E5E7EB' },
+                        grid: { color: '#E5E7EB' },
+                        pointLabels: { color: '#6B7280' },
+                        ticks: { backdropColor: 'transparent' }
+                    }
+                }
             }
-        } catch (error) {
-            alert('Error during logout: ' + error.message);
-        }
-    });
+        });
+    }
+    
+    // --- Utility ---
+    function formatDuration(minutes) {
+        if (minutes < 60) return `${minutes} min`;
+        if (minutes < 1440) return `${(minutes / 60).toFixed(1)} hours`;
+        return `${(minutes / 1440).toFixed(1)} days`;
+    }
 });

@@ -25,6 +25,8 @@ type Voucher struct {
 	Code       string    `json:"code"`
 	Name       string    `json:"name"`
 	Duration   int       `json:"duration"` // in minutes
+	Price      float64   `json:"price,omitempty"`
+	CreatedAt  time.Time `json:"created_at,omitempty"`
 	Expiration time.Time `json:"expiration,omitempty"`
 	DataLimit  int       `json:"data_limit,omitempty"` // in MB
 	IsReusable bool      `json:"is_reusable"`
@@ -111,6 +113,7 @@ func addVoucher(voucher Voucher) error {
 		}
 	}
 	voucher.ID = maxID + 1
+	voucher.CreatedAt = time.Now()
 
 	vouchersCache = append(vouchersCache, voucher)
 	return saveData()

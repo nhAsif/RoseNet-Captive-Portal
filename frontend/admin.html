@@ -3,148 +3,667 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - WiFi Vouchers</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
-        /* Rose Pine Palette - Pink Theme */
-        :root {
-            --background: #232136; /* Base */
-            --foreground: #e0def4; /* Text */
-            --primary: #eb6f92;    /* Rose */
-            --secondary: #f6c177;  /* Gold */
-            --muted: #6e6a86;      /* Muted */
-            --subtle: #908caa;     /* Subtle */
-            --accent: #3e8fb0;     /* Foam */
-            --error: #eb0000;      /* Love */
-        }
-        body {
-            background-color: var(--background);
-            color: var(--foreground);
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .title { color: var(--primary); }
-        .input-field { background-color: var(--muted); border-color: var(--subtle); color: var(--foreground); }
-        .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
-        .btn { background-color: var(--primary); color: var(--background); transition: background-color 0.3s; }
-        .btn:hover { background-color: #c55f7a; }
-        .btn-danger { background-color: var(--error); }
-        .btn-danger:hover { background-color: #c70000; }
-        .table-header { background-color: #2a273f; }
-        .table-row:nth-child(even) { background-color: #2a273f; }
-        .modal-content { background-color: #2a273f; }
-
-        @media (max-width: 768px) {
-            .table-header th, .table-row td {
-                padding: 0.5rem;
-                font-size: 0.875rem;
-            }
-            #addVoucherForm input, #addVoucherForm select, #addVoucherForm button {
-                padding: 0.75rem;
-                font-size: 0.9rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .table-header th, .table-row td {
-                padding: 0.25rem;
-                font-size: 0.75rem;
-            }
-            #addVoucherForm input, #addVoucherForm select, #addVoucherForm button {
-                padding: 0.6rem;
-                font-size: 0.85rem;
-            }
-            .title { font-size: 2rem; }
-            h2 { font-size: 1.5rem; }
-        }
-    </style>
+    <title>WiFi Voucher Management</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-bg: #1F2235;
+            --content-bg: #F4F5F9;
+            --card-bg: #FFFFFF;
+            --text-primary: #1F2235;
+            --text-secondary: #6e6a86;
+            --text-light: #e0def4;
+            --accent-blue: #90CAF9;
+            --accent-blue-active: #64B5F6;
+            --dark-card-bg: linear-gradient(145deg, #2a2d46, #1a1c2c);
+            --green-trend: #4CAF50;
+            --soft-blue: #A8D8EA;
+            --soft-pink: #F4B8C3;
+            --soft-yellow: #F7E4A4;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--content-bg);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Login View --- */
+        #loginView {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--sidebar-bg);
+            transition: opacity 0.5s ease;
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .login-card h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+        .login-card p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #D1D5DB;
+            background-color: #F9FAFB;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(144, 202, 249, 0.5);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 0.875rem;
+            border-radius: 0.5rem;
+            border: none;
+            background-color: var(--accent-blue);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-submit:hover { background-color: var(--accent-blue-active); }
+        #loginError {
+            margin-top: 1rem;
+            color: #EF4444;
+            min-height: 1.25rem;
+        }
+
+        /* --- Main App Layout --- */
+        #app {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            color: var(--text-light);
+            flex-shrink: 0;
+        }
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2.5rem;
+        }
+        .sidebar-header .logo-icon {
+            background-color: var(--accent-blue);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            color: var(--sidebar-bg);
+        }
+        .sidebar-header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .nav-menu {
+            list-style: none;
+            flex-grow: 1;
+        }
+        .nav-item {
+            margin-bottom: 0.5rem;
+        }
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.875rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            color: var(--text-light);
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .nav-link i {
+            margin-right: 1rem;
+            width: 20px;
+            height: 20px;
+        }
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .nav-link.active {
+            background-color: var(--accent-blue);
+            color: var(--sidebar-bg);
+        }
+
+        .sidebar-footer {
+            margin-top: 2rem;
+        }
+        .system-status-card {
+            background: var(--dark-card-bg);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .system-status-card h4 {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            color: var(--green-trend);
+        }
+        .status-indicator::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--green-trend);
+        }
+        .sidebar-actions {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .action-icon {
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+        .action-icon:hover {
+            color: var(--text-light);
+        }
+
+
+        /* --- Main Content --- */
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .search-bar {
+            position: relative;
+            width: 300px;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            background-color: var(--card-bg);
+            color: var(--text-primary);
+        }
+        .search-bar i {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .notification-bell {
+            position: relative;
+            color: var(--text-secondary);
+        }
+        .notification-bell .dot {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-pink);
+            border-radius: 50%;
+        }
+        .user-profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        .content-view {
+            display: none;
+        }
+        .content-view.active {
+            display: block;
+        }
+        
+        /* Dashboard Grid */
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        .grid-4-cols {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        .grid-3-cols {
+            grid-template-columns: 2fr 1fr;
+        }
+        .grid-2-cols {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+        }
+        .card-header {
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        .card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .card-trend {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--green-trend);
+            font-weight: 600;
+        }
+        .card-icon {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+        }
+        .metric-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Table Styles */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        .data-table th, .data-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .data-table th {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        .data-table td {
+            color: var(--text-primary);
+        }
+        .data-table tbody tr:hover {
+            background-color: #F9FAFB;
+        }
+        .status-chip {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .status-active { background-color: #D1FAE5; color: #065F46; }
+        .status-expired { background-color: #FEE2E2; color: #991B1B; }
+        .status-unused { background-color: #FEF3C7; color: #92400E; }
+        .action-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+        .action-button:hover { color: #EF4444; }
+
+        /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+        .btn-primary:hover { background-color: var(--accent-blue-active); }
+
+        .hidden {
+            display: none;
+        }
+        .visually-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+    </style>
 </head>
 <body>
-    <header style="background-color: var(--background); color: var(--primary); padding: 1rem; text-align: center; font-size: 1.5rem; font-weight: bold; border-bottom: 1px solid var(--subtle); display: flex; justify-content: space-between; align-items: center;">
-        <span>Openwrt Voucher system</span>
-        <button id="logoutButton" class="px-4 py-2 text-sm font-bold rounded-md btn">Logout</button>
-    </header>
-
-    <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; margin-top: 2rem;">
-        <!-- Login View -->
-        <div id="loginView" class="max-w-md mx-auto px-4 py-8 text-center rounded-lg shadow-xl modal-content">
-            <h1 class="text-3xl font-bold mb-6 title">Admin Login</h1>
-            <form id="loginForm" class="space-y-4">
-                <input type="password" id="password" placeholder="Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                <button type="submit" class="w-full p-3 font-bold rounded-md btn focus:outline-none">Login</button>
-            </form>
-            <p id="loginError" class="mt-4 text-red-400"></p>
-        </div>
-
-        <!-- Admin Dashboard View -->
-        <div id="adminView" class="hidden w-full lg:max-w-screen-lg mx-auto px-4 py-8">
-            <h1 class="text-4xl font-bold mb-8 title">Voucher Management</h1>
-
-            <!-- Add Voucher Form -->
-            <div class="p-6 mb-8 rounded-lg modal-content">
-                <h2 class="text-2xl font-bold mb-4" style="color: var(--secondary);">Add New Voucher</h2>
-                <form id="addVoucherForm" class="grid grid-cols-1 gap-4 md:grid-cols-4">
-                    <input type="number" id="duration" placeholder="Duration" class="p-2 rounded-md input-field" required>
-                    <select id="durationUnit" class="p-2 rounded-md input-field">
-                        <option value="minutes">Minutes</option>
-                        <option value="days">Days</option>
-                        <option value="months">Months</option>
-                    </select>
-                    <input type="text" id="voucherName" placeholder="Voucher Name (optional)" class="p-2 rounded-md input-field">
-                    <input type="text" id="code" placeholder="Custom Code (optional)" class="p-2 rounded-md input-field">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="isReusable" class="w-4 h-4 mr-2">
-                        <label for="isReusable">Reusable</label>
-                    </div>
-                    <button type="submit" class="p-2 font-bold rounded-md btn">Add Voucher</button>
-                </form>
-            </div>
-
-            <!-- Voucher List -->
-            <div>
-                <h2 class="text-2xl font-bold mb-4" style="color: var(--secondary);">Existing Vouchers</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-left rounded-lg">
-                        <thead class="table-header">
-                            <tr>
-                                <th class="p-3">Name</th>
-                                <th class="p-3">Code</th>
-                                <th class="p-3">Duration</th>
-                                <th class="p-3">Status</th>
-                                <th class="p-3">Used By</th>
-                                <th class="p-3">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="voucherList">
-                            <!-- Vouchers will be dynamically inserted here -->
-                        </tbody>
-                    </table>
+    <!-- Login View -->
+    <div id="loginView">
+        <div class="login-card">
+            <h1>Admin Login</h1>
+            <p>Welcome to the WiFi Admin dashboard.</p>
+            <form id="loginForm">
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="input-field" required>
                 </div>
-            </div>
-
-            <!-- Change Password Form -->
-            <div class="p-6 mt-8 rounded-lg modal-content">
-                <h2 class="text-2xl font-bold mb-4" style="color: var(--secondary);">Change Admin Password</h2>
-                <form id="changePasswordForm" class="space-y-4">
-                    <input type="password" id="oldPassword" placeholder="Current Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                    <input type="password" id="newPassword" placeholder="New Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                    <input type="password" id="confirmNewPassword" placeholder="Confirm New Password" class="w-full p-3 rounded-md input-field focus:outline-none" required>
-                    <button type="submit" class="w-full p-3 font-bold rounded-md btn focus:outline-none">Change Password</button>
-                </form>
-                <p id="passwordChangeMessage" class="mt-4 text-red-400"></p>
-            </div>
+                <button type="submit" class="btn-submit">Login</button>
+                <p id="loginError"></p>
+            </form>
         </div>
     </div>
 
+    <!-- Main Application -->
+    <div id="app" class="hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon"><i data-feather="wifi"></i></div>
+                <h1>WiFi Admin</h1>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#dashboard" class="nav-link active" data-view="dashboard">
+                        <i data-feather="home"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#vouchers" class="nav-link" data-view="vouchers">
+                        <i data-feather="credit-card"></i> Voucher Management
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#sessions" class="nav-link" data-view="sessions">
+                        <i data-feather="users"></i> Active Sessions
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#zones" class="nav-link" data-view="zones">
+                        <i data-feather="map-pin"></i> Hotspot Zones
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#logs" class="nav-link" data-view="logs">
+                        <i data-feather="file-text"></i> User Logs
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#reports" class="nav-link" data-view="reports">
+                        <i data-feather="bar-chart-2"></i> Revenue Reports
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="system-status-card">
+                    <h4>System Status</h4>
+                    <div class="status-indicator">Server Online</div>
+                </div>
+                <div class="sidebar-actions">
+                    <div class="action-icon" id="settingsButton"><i data-feather="settings"></i></div>
+                    <div class="action-icon" id="logoutButton"><i data-feather="log-out"></i></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="search-bar">
+                    <i data-feather="search"></i>
+                    <input type="text" placeholder="Search vouchers, users...">
+                </div>
+                <div class="header-actions">
+                    <div class="notification-bell">
+                        <i data-feather="bell"></i>
+                        <span class="dot"></span>
+                    </div>
+                    <div class="user-profile"></div>
+                </div>
+            </header>
+
+            <!-- Dashboard View -->
+            <div id="dashboard" class="content-view active">
+                <div class="grid grid-4-cols" style="margin-bottom: 1.5rem;">
+                    <div class="card">
+                        <div class="metric-card-header">
+                            <div>
+                                <div class="card-header">Total Revenue</div>
+                                <div class="card-value" id="total-revenue">$0</div>
+                            </div>
+                            <div class="card-icon"><i data-feather="dollar-sign"></i></div>
+                        </div>
+                        <div class="card-trend" id="revenue-trend">+0%</div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-card-header">
+                            <div>
+                                <div class="card-header">Active Vouchers</div>
+                                <div class="card-value" id="active-vouchers">0</div>
+                            </div>
+                             <div class="card-icon"><i data-feather="check-circle"></i></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-card-header">
+                            <div>
+                                <div class="card-header">Total Data Consumed</div>
+                                <div class="card-value" id="data-consumed">0 GB</div>
+                            </div>
+                            <div class="card-icon"><i data-feather="bar-chart"></i></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-card-header">
+                            <div>
+                                <div class="card-header">Live Online Users</div>
+                                <div class="card-value" id="live-users">0</div>
+                            </div>
+                            <div class="card-icon"><i data-feather="user"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-3-cols" style="margin-bottom: 1.5rem;">
+                    <div class="card">
+                        <h3 class="card-title">Voucher Sales Statistics</h3>
+                        <canvas id="voucherSalesChart"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">Voucher Status</h3>
+                        <canvas id="voucherStatusChart"></canvas>
+                    </div>
+                </div>
+                <div class="grid grid-2-cols">
+                    <div class="card">
+                        <h3 class="card-title">Top Selling Plans</h3>
+                        <ul id="top-plans-list"></ul>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">Traffic by Zone</h3>
+                        <canvas id="trafficByZoneChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voucher Management View -->
+            <div id="vouchers" class="content-view">
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title">Add New Voucher</h3>
+                    <form id="addVoucherForm" class="form-grid">
+                        <div class="input-group">
+                            <label for="voucherName">Voucher Name (e.g., 1 Day Pass)</label>
+                            <input type="text" id="voucherName" class="input-field" placeholder="Voucher Name">
+                        </div>
+                        <div class="input-group">
+                            <label for="duration">Duration</label>
+                            <input type="number" id="duration" class="input-field" placeholder="e.g., 1">
+                        </div>
+                        <div class="input-group">
+                            <label for="durationUnit">Unit</label>
+                            <select id="durationUnit" class="input-field">
+                                <option value="minutes">Minutes</option>
+                                <option value="days" selected>Days</option>
+                                <option value="months">Months</option>
+                            </select>
+                        </div>
+                         <div class="input-group">
+                            <label for="price">Price ($)</label>
+                            <input type="number" id="price" class="input-field" placeholder="e.g., 5.00">
+                        </div>
+                        <div class="input-group">
+                            <label for="code">Custom Code (optional)</label>
+                            <input type="text" id="code" class="input-field" placeholder="Leave blank for random">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem;">
+                            <button type="submit" class="btn btn-primary">Add Voucher</button>
+                             <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="isReusable" style="width: 1rem; height: 1rem; margin-right: 0.5rem;">
+                                <label for="isReusable">Reusable</label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Existing Vouchers</h3>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Code</th>
+                                    <th>Duration</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                    <th>Used By</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="voucherList">
+                                <!-- Vouchers will be dynamically inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+             <!-- Settings View -->
+            <div id="settings" class="content-view">
+                <div class="card">
+                    <h3 class="card-title">Change Admin Password</h3>
+                    <form id="changePasswordForm" style="max-width: 400px;">
+                        <div class="input-group">
+                            <label for="oldPassword">Current Password</label>
+                            <input type="password" id="oldPassword" class="input-field" required>
+                        </div>
+                         <div class="input-group">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" class="input-field" required>
+                        </div>
+                         <div class="input-group">
+                            <label for="confirmNewPassword">Confirm New Password</label>
+                            <input type="password" id="confirmNewPassword" class="input-field" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                        <p id="passwordChangeMessage" style="margin-top: 1rem; min-height: 1.25rem;"></p>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Other placeholder views -->
+            <div id="sessions" class="content-view"><div class="card"><h3 class="card-title">Active Sessions (Coming Soon)</h3></div></div>
+            <div id="zones" class="content-view"><div class="card"><h3 class="card-title">Hotspot Zones (Coming Soon)</h3></div></div>
+            <div id="logs" class="content-view"><div class="card"><h3 class="card-title">User Logs (Coming Soon)</h3></div></div>
+            <div id="reports" class="content-view"><div class="card"><h3 class="card-title">Revenue Reports (Coming Soon)</h3></div></div>
+
+        </main>
+    </div>
+
     <script src="admin.js"></script>
-    <footer style="background-color: var(--background); color: var(--primary); padding: 1rem; text-align: center; font-size: 0.9rem; margin-top: 2rem; border-top: 1px solid var(--subtle);">
-        Made with ❤️ by [.nhAsif] • powered by Go
-    </footer>
 </body>
 </html>
