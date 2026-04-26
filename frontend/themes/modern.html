@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WiFi Access Portal</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --error: #ef4444;
+      --success: #22c55e;
+      --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      padding: 2.5rem;
+      border-radius: 1rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+
+    .header { margin-bottom: 2rem; }
+    .logo { font-size: 1.5rem; font-weight: 700; color: var(--primary); margin-bottom: 0.5rem; }
+    .title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.875rem; }
+
+    .input-group { margin-bottom: 1.5rem; text-align: left; }
+    label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; margin-left: 0.25rem; }
+    input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    input:focus { outline: none; border-color: var(--primary); ring: 2px solid var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+
+    .btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .message { margin-top: 1rem; font-size: 0.875rem; }
+    .error { color: var(--error); }
+    .success { color: var(--success); }
+
+    .footer { margin-top: 2rem; text-align: center; color: var(--text-muted); font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <div class="logo">QuickConnect</div>
+        <h2 class="title">WiFi Access</h2>
+        <p class="subtitle">Enter your voucher to get started</p>
+      </div>
+
+      <form id="voucherForm">
+        <div class="input-group">
+          <label for="voucherCode">Voucher Code</label>
+          <input type="text" id="voucherCode" placeholder="ABC-123" required autocomplete="off">
+        </div>
+        <button type="submit" class="btn">Connect Now</button>
+      </form>
+
+      <p id="errorMessage" class="message error"></p>
+      <p id="successMessage" class="message success"></p>
+    </div>
+    <div class="footer">
+      &copy; 2026 Powered by RoseNet
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('voucherForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const voucherCode = document.getElementById('voucherCode').value.trim();
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+      const btn = event.target.querySelector('button');
+      
+      errorMessage.textContent = '';
+      successMessage.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Authenticating...';
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientIP = urlParams.get('ip');
+      const clientMAC = urlParams.get('mac');
+      const token = urlParams.get('token');
+
+      if (!clientIP || !clientMAC || !token) {
+        errorMessage.textContent = 'Required information is missing. Please reconnect to WiFi.';
+        btn.disabled = false;
+        btn.textContent = 'Connect Now';
+        return;
+      }
+      try {
+        const response = await fetch(`/binauth-stage?voucher=${voucherCode}&ip=${clientIP}&mac=${clientMAC}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unknown error');
+        
+        successMessage.textContent = `Success! Access for ${data.duration} minutes.`;
+        btn.textContent = 'Success';
+        
+        setTimeout(() => {
+          window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+        }, 1200);
+      } catch (error) {
+        errorMessage.textContent = `Error: ${error.message}`;
+        btn.disabled = false;
+        btn.textContent = 'Connect Now';
+      }
+    });
+
+    (async function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientMAC = urlParams.get('mac');
+      const token = urlParams.get('token');
+      if (clientMAC && token) {
+        try {
+          const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
+          if (resp.ok) {
+            window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+          }
+        } catch (e) {}
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -8,10 +8,20 @@ import (
 	"time"
 )
 
-const (
-	voucherDBPath = "/data/voucher.json"
-	settingsPath  = "/data/settings.json"
+var (
+	voucherDBPath = "data/voucher.json"
+	settingsPath  = "data/settings.json"
+	dataDir       = "data"
 )
+
+func init() {
+	// Check if we are on the router (production) or local (dev)
+	if _, err := os.Stat("/data"); err == nil {
+		dataDir = "/data"
+		voucherDBPath = "/data/voucher.json"
+		settingsPath = "/data/settings.json"
+	}
+}
 
 // Using a mutex to prevent race conditions when reading/writing files
 var fileMutex = &sync.Mutex{}
@@ -96,8 +106,8 @@ func saveData() error {
 }
 
 func setupDatabase() error {
-	// Create the /data directory if it doesn't exist
-	if err := os.MkdirAll("/data", 0755); err != nil {
+	// Create the data directory if it doesn't exist
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return err
 	}
 	// Load existing data from files into memory

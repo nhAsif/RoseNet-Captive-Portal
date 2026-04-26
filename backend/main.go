@@ -12,13 +12,19 @@ import (
 	"time"
 )
 
-// var adminPassword = "rosepinepink" // This will now be stored in the database
 var sessionCookieName = "voucher-admin-session"
+var frontendDir = "frontend"
 
 // For BinAuth: an in-memory store to stage client authentications.
-// Key: MAC address, Value: duration in seconds
 var stagedAuths = make(map[string]int)
 var stagedAuthsMutex = &sync.Mutex{}
+
+func init() {
+	// Check if we are on the router (production) or local (dev)
+	if _, err := os.Stat("/www/voucher"); err == nil {
+		frontendDir = "/www/voucher"
+	}
+}
 
 func generateVoucherCode() (string, error) {
 	bytes := make([]byte, 4) // 8 characters hex
@@ -32,7 +38,6 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(sessionCookieName)
 		if err != nil || cookie.Value != "admin-is-logged-in" {
-
 			w.Header().Set("Content-Type", "application/json")
 			http.Error(w, `{"error": "Unauthorized"}`, http.StatusUnauthorized)
 			return
@@ -42,14 +47,11 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func setupLogging() {
-
 	// On OpenWRT, /tmp/ is a ramdisk, so this is fine for logging.
 	logFile, err := os.OpenFile("/tmp/voucher.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
-
-	if err != nil {
-
+	if err == nil {
+		log.SetOutput(logFile)
 	}
-	log.SetOutput(logFile)
 }
 
 func main() {
@@ -57,21 +59,19 @@ func main() {
 
 	// Setup database
 	if err := setupDatabase(); err != nil {
-
+		log.Fatalf("Failed to setup database: %v", err)
 	}
 
 	// Initialize admin password if not set
 	if err := initializeAdminPassword("rosepinepink"); err != nil {
-
+		log.Fatalf("Failed to initialize admin password: %v", err)
 	}
 
-	// --- BEGIN: Re-stage active users for NoDogSplash after restart ---
 	restageActiveUsers()
-	// --- END: Re-stage active users ---
 
 	// Setup routes
-	http.HandleFunc("/binauth-stage", binauthStageHandler) // For staging an auth from the frontend
-	http.HandleFunc("/binauth-check", binauthCheckHandler) // For the binauth script to check
+	http.HandleFunc("/binauth-stage", binauthStageHandler)
+	http.HandleFunc("/binauth-check", binauthCheckHandler)
 	http.HandleFunc("/auth", authHandler)
 
 	// Admin routes
@@ -88,6 +88,7 @@ func main() {
 	// Serve the portal with theme support
 	http.HandleFunc("/", rootHandler)
 
+	log.Printf("Starting server on :7891, serving from %s", frontendDir)
 	if err := http.ListenAndServe(":7891", nil); err != nil {
 		log.Fatal(err)
 	}
@@ -96,7 +97,7 @@ func main() {
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	// Serve static files (admin.html, admin.js, etc.)
 	if r.URL.Path != "/" && r.URL.Path != "/index.html" {
-		http.FileServer(http.Dir("/www/voucher/")).ServeHTTP(w, r)
+		http.FileServer(http.Dir(frontendDir)).ServeHTTP(w, r)
 		return
 	}
 
@@ -106,16 +107,14 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		theme = "default"
 	}
 
-	themePath := fmt.Sprintf("/www/voucher/themes/%s.html", theme)
+	themePath := fmt.Sprintf("%s/themes/%s.html", frontendDir, theme)
 	if _, err := os.Stat(themePath); os.IsNotExist(err) {
-		// Fallback to default theme if the selected one doesn't exist
-		themePath = "/www/voucher/themes/default.html"
+		themePath = fmt.Sprintf("%s/themes/default.html", frontendDir)
 	}
 
 	http.ServeFile(w, r, themePath)
 }
 
-// validateVoucher checks if a voucher is valid and returns it along with an error message suitable for clients.
 func validateVoucher(voucherCode string) (*Voucher, string) {
 	if voucherCode == "" {
 		return nil, "Voucher code is required"
@@ -126,26 +125,21 @@ func validateVoucher(voucherCode string) (*Voucher, string) {
 		return nil, "Invalid voucher code"
 	}
 
-	// Validation checks
-	// Check 1: One-time voucher already used?
 	if !voucher.IsReusable && voucher.IsUsed {
 		return nil, "Voucher has already been used"
 	}
 
-	// Check 2: Has the voucher itself expired (e.g. promotional voucher for December)
 	if !voucher.Expiration.IsZero() && time.Now().After(voucher.Expiration) {
 		return nil, "Voucher has expired"
 	}
 
-	// Check 3: Has the active period expired since first use?
-	// This applies to all vouchers that have been used at least once.
 	if voucher.IsUsed && voucher.Duration > 0 {
 		if time.Since(voucher.StartTime).Minutes() > float64(voucher.Duration) {
 			return nil, "Voucher access duration has expired"
 		}
 	}
 
-	return voucher, "" // No error
+	return voucher, ""
 }
 
 func authHandler(w http.ResponseWriter, r *http.Request) {
@@ -161,8 +155,6 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If we are here, the voucher is valid to be used.
-	// If it's the first time it's being used for anyone, mark it.
 	if !voucher.IsUsed {
 		err := useVoucher(voucher.Code, clientIP, clientMAC)
 		if err != nil {
@@ -179,7 +171,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := map[string]interface{}{
 		"status":   "success",
-		"duration": voucher.Duration, // NDS will use this duration
+		"duration": voucher.Duration,
 	}
 	json.NewEncoder(w).Encode(response)
 }
@@ -199,30 +191,26 @@ func adminLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get admin password from database
 	currentAdminPassword, err := getSetting("admin_password")
 	if err != nil {
-
 		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
 		return
 	}
 
 	if creds.Password != currentAdminPassword {
-
 		http.Error(w, `{"error": "Invalid credentials"}`, http.StatusUnauthorized)
 		return
 	}
 
-	// Set a simple session cookie
 	expiration := time.Now().Add(10 * time.Minute)
 	cookie := http.Cookie{
 		Name:     sessionCookieName,
-		Value:    "admin-is-logged-in", // In a real app, this would be a secure token
+		Value:    "admin-is-logged-in",
 		Expires:  expiration,
-		Path:     "/",                     // Set path to / so it can be read by /admin/* and /admin.html
-		HttpOnly: true,                    // Prevent JavaScript access to the cookie
-		Secure:   false,                   // Set to false for HTTP connections. Set to true for HTTPS in production.
-		SameSite: http.SameSiteStrictMode, // Protect against CSRF
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, &cookie)
 	w.Write([]byte(`{"status": "success"}`))
@@ -232,69 +220,44 @@ func adminLogoutHandler(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
 		Name:     sessionCookieName,
 		Value:    "",
-		Expires:  time.Unix(0, 0), // Set expiration to a past date to delete the cookie
+		Expires:  time.Unix(0, 0),
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false, // Set to false for HTTP connections. Set to true for HTTPS in production.
+		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, &cookie)
-	w.Write([]byte(`{"status": "success", "message": "Logged out successfully"}`))
+	w.Write([]byte(`{"status": "success"}`))
 }
 
 func adminAddHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
 	var v Voucher
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
 		http.Error(w, `{"error": "Invalid request body"}`, http.StatusBadRequest)
 		return
 	}
 
-	// If a custom code is not provided, generate one
 	if v.Code == "" {
-		code, err := generateVoucherCode()
-		if err != nil {
-
-			http.Error(w, `{"error": "Could not generate voucher code"}`, http.StatusInternalServerError)
-			return
-		}
+		code, _ := generateVoucherCode()
 		v.Code = code
 	}
-
-	// If no name is provided, use the code as the name
 	if v.Name == "" {
 		v.Name = v.Code
 	}
 
 	err := addVoucher(v)
 	if err != nil {
-
-		http.Error(w, `{"error": "Could not add voucher. Code may already exist."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Could not add voucher"}`, http.StatusInternalServerError)
 		return
 	}
 
-	// Return the newly created voucher, including its generated code and ID
-	newVoucher, err := getVoucherByCode(v.Code)
-	if err != nil {
-
-		http.Error(w, `{"error": "Could not retrieve new voucher"}`, http.StatusInternalServerError)
-		return
-	}
+	newVoucher, _ := getVoucherByCode(v.Code)
 	json.NewEncoder(w).Encode(newVoucher)
 }
 
 func adminDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
 	var payload struct {
 		ID int `json:"id"`
 	}
@@ -303,18 +266,11 @@ func adminDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.ID <= 0 {
-		http.Error(w, `{"error": "Invalid voucher ID"}`, http.StatusBadRequest)
-		return
-	}
-
 	err := deleteVoucher(payload.ID)
 	if err != nil {
-
 		http.Error(w, `{"error": "Could not delete voucher"}`, http.StatusInternalServerError)
 		return
 	}
-
 	w.Write([]byte(`{"status": "success"}`))
 }
 
@@ -322,7 +278,6 @@ func adminVouchersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vouchers, err := getVouchers()
 	if err != nil {
-
 		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
 		return
 	}
@@ -331,11 +286,6 @@ func adminVouchersHandler(w http.ResponseWriter, r *http.Request) {
 
 func adminChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
 	var payload struct {
 		OldPassword string `json:"old_password"`
 		NewPassword string `json:"new_password"`
@@ -345,116 +295,67 @@ func adminChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentAdminPassword, err := getSetting("admin_password")
-	if err != nil {
-		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
-		return
-	}
-
+	currentAdminPassword, _ := getSetting("admin_password")
 	if payload.OldPassword != currentAdminPassword {
 		http.Error(w, `{"error": "Incorrect old password"}`, http.StatusUnauthorized)
 		return
 	}
 
-	if payload.NewPassword == "" {
-		http.Error(w, `{"error": "New password cannot be empty"}`, http.StatusBadRequest)
-		return
-	}
-
-	err = setSetting("admin_password", payload.NewPassword)
-	if err != nil {
-		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
-		return
-	}
-
+	setSetting("admin_password", payload.NewPassword)
 	w.Write([]byte(`{"status": "success"}`))
 }
 
 func adminGetSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
-	// We'll return all settings from the cache
-	// In database.go settingsCache is map[string]string
-	// We might want to filter out sensitive ones like admin_password
 	settings := make(map[string]string)
 	for k, v := range settingsCache {
 		if k != "admin_password" {
 			settings[k] = v
 		}
 	}
-
-	// Ensure currency_symbol exists, default to $
 	if _, ok := settings["currency_symbol"]; !ok {
 		settings["currency_symbol"] = "$"
 	}
-
 	json.NewEncoder(w).Encode(settings)
 }
 
 func adminUpdateSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
 	var newSettings map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&newSettings); err != nil {
 		http.Error(w, `{"error": "Invalid request body"}`, http.StatusBadRequest)
 		return
 	}
-
 	for k, v := range newSettings {
-		// Only allow updating certain keys for safety
-		if k == "currency_symbol" {
-			err := setSetting(k, v)
-			if err != nil {
-				http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
-				return
-			}
+		if k == "currency_symbol" || k == "active_theme" {
+			setSetting(k, v)
 		}
 	}
-
 	w.Write([]byte(`{"status": "success"}`))
 }
 
 func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
-	vouchers, err := getVouchers()
-	if err != nil {
-		http.Error(w, `{"error": "Could not retrieve vouchers"}`, http.StatusInternalServerError)
-		return
-	}
-
+	vouchers, _ := getVouchers()
 	now := time.Now()
 	var totalRevenue float64
-	var revenueTrend float64 // Mock for now
 	activeVouchers := 0
 	expiredCount := 0
 	unusedCount := 0
 
-	salesByMonth := make(map[string]float64) // "YYYY-MM" -> total sales
+	salesByMonth := make(map[string]float64)
 	sixMonthsAgo := now.AddDate(0, -6, 0)
-
-	topPlans := make(map[string]int) // name -> sales count
+	topPlans := make(map[string]int)
 
 	for _, v := range vouchers {
-		// Calculate revenue from all created vouchers
 		totalRevenue += v.Price
-
-		// Increment sales count for plans
 		if v.Name != "" {
 			topPlans[v.Name]++
 		}
-
-		// Calculate sales by month for the last 6 months
 		if !v.CreatedAt.IsZero() && v.CreatedAt.After(sixMonthsAgo) {
 			month := v.CreatedAt.Format("2006-01")
 			salesByMonth[month] += v.Price
 		}
-
-		// Calculate voucher status
 		if v.IsUsed {
 			expires := v.StartTime.Add(time.Duration(v.Duration) * time.Minute)
 			if now.After(expires) {
@@ -467,18 +368,15 @@ func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Prepare sales stats for the chart (last 6 months)
 	salesLabels := make([]string, 0)
 	salesData := make([]float64, 0)
 	for i := 5; i >= 0; i-- {
 		month := now.AddDate(0, -i, 0)
 		monthKey := month.Format("2006-01")
-		monthLabel := month.Format("Jan")
-		salesLabels = append(salesLabels, monthLabel)
+		salesLabels = append(salesLabels, month.Format("Jan"))
 		salesData = append(salesData, salesByMonth[monthKey])
 	}
 
-	// Prepare top plans
 	type plan struct {
 		Name  string `json:"name"`
 		Sales int    `json:"sales"`
@@ -487,46 +385,19 @@ func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
 	for name, sales := range topPlans {
 		planList = append(planList, plan{Name: name, Sales: sales})
 	}
-	// Sort plans by sales descending
-	// (for simplicity, we'll skip sorting in this example, but you could use sort.Slice)
-
-	// Calculate revenue trend (this month vs last month)
-	thisMonthKey := now.Format("2006-01")
-	lastMonthKey := now.AddDate(0, -1, 0).Format("2006-01")
-	thisMonthSales := salesByMonth[thisMonthKey]
-	lastMonthSales := salesByMonth[lastMonthKey]
-	if lastMonthSales > 0 {
-		revenueTrend = ((thisMonthSales - lastMonthSales) / lastMonthSales) * 100
-	} else if thisMonthSales > 0 {
-		revenueTrend = 100
-	}
 
 	stats := map[string]interface{}{
 		"total_revenue":   totalRevenue,
-		"revenue_trend":   int(revenueTrend),
 		"active_vouchers": activeVouchers,
-		"data_consumed":   0,
 		"live_users":      activeVouchers,
-		"sales_stats": map[string]interface{}{
-			"labels": salesLabels,
-			"data":   salesData,
-		},
-		"voucher_status": map[string]int{
-			"active":  activeVouchers,
-			"expired": expiredCount,
-			"unused":  unusedCount,
-		},
-		"top_plans": planList,
-		"traffic_by_zone": map[string]interface{}{
-			"labels": []string{"Zone A", "Zone B", "Zone C"},
-			"data":   []int{0, 0, 0},
-		},
+		"sales_stats":     map[string]interface{}{"labels": salesLabels, "data": salesData},
+		"voucher_status":  map[string]int{"active": activeVouchers, "expired": expiredCount, "unused": unusedCount},
+		"top_plans":       planList,
+		"traffic_by_zone": map[string]interface{}{"labels": []string{"Zone A", "Zone B", "Zone C"}, "data": []int{0, 0, 0}},
 	}
-
 	json.NewEncoder(w).Encode(stats)
 }
 
-// binauthStageHandler is called by the frontend to validate a voucher and "stage" it for BinAuth.
 func binauthStageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	voucherCode := r.URL.Query().Get("voucher")
@@ -545,7 +416,6 @@ func binauthStageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If it's the first use, mark it in the DB.
 	if !voucher.IsUsed {
 		err := useVoucher(voucher.Code, clientIP, clientMAC)
 		if err != nil {
@@ -555,29 +425,20 @@ func binauthStageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Stage the authentication for the binauth script to pick up.
 	durationInSeconds := voucher.Duration * 60
 	stagedAuthsMutex.Lock()
 	stagedAuths[clientMAC] = durationInSeconds
 	stagedAuthsMutex.Unlock()
 
-	// Set a timer to clean up the staged auth if not used within a short period (e.g., 30 seconds)
-	// This prevents the map from growing indefinitely if the check call never comes.
 	time.AfterFunc(30*time.Second, func() {
 		stagedAuthsMutex.Lock()
-		// We only delete if it exists, no harm if it was already used and deleted.
 		delete(stagedAuths, clientMAC)
 		stagedAuthsMutex.Unlock()
 	})
 
-	response := map[string]interface{}{
-		"status":   "success",
-		"duration": voucher.Duration,
-	}
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]interface{}{"status": "success", "duration": voucher.Duration})
 }
 
-// binauthCheckHandler is called by the binauth.sh script.
 func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	clientMAC := r.URL.Query().Get("mac")
 	if clientMAC == "" {
@@ -588,19 +449,16 @@ func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	stagedAuthsMutex.Lock()
 	duration, ok := stagedAuths[clientMAC]
 	if ok {
-		// IMPORTANT: Delete the entry after successful check to prevent replay.
 		delete(stagedAuths, clientMAC)
 	}
 	stagedAuthsMutex.Unlock()
 
 	if ok {
-		// Respond with plain text for the shell script
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintf(w, "%d", duration)
 		return
 	}
 
-	// --- NEW: Check the database for persistent authentication ---
 	vouchers, err := getVouchers()
 	if err == nil {
 		now := time.Now()
@@ -618,13 +476,9 @@ func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// --- END NEW ---
-
-	// Not found or already used
 	http.Error(w, "Not authorized", http.StatusUnauthorized)
 }
 
-// restageActiveUsers scans the database for all vouchers that are in use and not expired, and re-stages them for NoDogSplash.
 func restageActiveUsers() {
 	vouchers, err := getVouchers()
 	if err != nil {

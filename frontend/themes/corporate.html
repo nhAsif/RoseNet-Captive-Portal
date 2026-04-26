@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ISP Customer Portal</title>
+  <style>
+    :root {
+      --primary-blue: #0284c7;
+      --dark-blue: #0c4a6e;
+      --light-blue: #e0f2fe;
+      --text: #334155;
+      --bg: #f1f5f9;
+      --white: #ffffff;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    .top-bar {
+      background-color: var(--dark-blue);
+      height: 5px;
+      width: 100%;
+    }
+
+    .nav {
+      background-color: var(--white);
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary-blue);
+    }
+
+    .main-content {
+      display: flex;
+      justify-content: center;
+      padding-top: 5rem;
+    }
+
+    .login-box {
+      background-color: var(--white);
+      width: 100%;
+      max-width: 450px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+
+    .login-header {
+      background-color: var(--primary-blue);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .login-body {
+      padding: 2.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: var(--dark-blue);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 1rem;
+      background-color: var(--primary-blue);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--dark-blue);
+    }
+
+    .info-text {
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      text-align: center;
+      color: #64748b;
+    }
+
+    .message {
+      margin-top: 1rem;
+      text-align: center;
+      font-weight: 600;
+    }
+    .error { color: #dc2626; }
+    .success { color: #16a34a; }
+  </style>
+</head>
+<body>
+  <div class="top-bar"></div>
+  <div class="nav">
+    <div class="brand">GlobalNet ISP</div>
+    <div style="font-size: 0.8rem; color: #94a3b8;">High-Speed Connectivity</div>
+  </div>
+
+  <div class="main-content">
+    <div class="login-box">
+      <div class="login-header">
+        <h2 style="margin:0">Voucher Login</h2>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.9">Welcome to the GlobalNet Hotspot</p>
+      </div>
+      <div class="login-body">
+        <form id="voucherForm">
+          <div class="form-group">
+            <label for="voucherCode">Access Code</label>
+            <input type="text" id="voucherCode" placeholder="Enter your code" required autocomplete="off">
+          </div>
+          <button type="submit">Activate Session</button>
+        </form>
+        <div id="errorMessage" class="message error"></div>
+        <div id="successMessage" class="message success"></div>
+        <div class="info-text">
+          Trouble connecting? Contact our 24/7 support at 1-800-ROSE-NET
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('voucherForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const voucherCode = document.getElementById('voucherCode').value.trim();
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+      const btn = event.target.querySelector('button');
+      
+      errorMessage.textContent = '';
+      successMessage.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientIP = urlParams.get('ip');
+      const clientMAC = urlParams.get('mac');
+      const token = urlParams.get('token');
+
+      if (!clientIP || !clientMAC || !token) {
+        errorMessage.textContent = 'Required information is missing. Please reconnect to WiFi.';
+        btn.disabled = false;
+        btn.textContent = 'Activate Session';
+        return;
+      }
+      try {
+        const response = await fetch(`/binauth-stage?voucher=${voucherCode}&ip=${clientIP}&mac=${clientMAC}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unknown error');
+        
+        successMessage.textContent = `Access granted for ${data.duration} minutes. Redirecting...`;
+        btn.textContent = 'Activated';
+        
+        setTimeout(() => {
+          window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+        }, 1200);
+      } catch (error) {
+        errorMessage.textContent = `Error: ${error.message}`;
+        btn.disabled = false;
+        btn.textContent = 'Activate Session';
+      }
+    });
+
+    (async function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientMAC = urlParams.get('mac');
+      const token = urlParams.get('token');
+      if (clientMAC && token) {
+        try {
+          const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
+          if (resp.ok) {
+            window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+          }
+        } catch (e) {}
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RoseNet Access Portal</title>
+  <style>
+    /* Bitcoin DeFi Design Tokens - Local Only Edition */
+    :root {
+      --void: #030304;
+      --dark-matter: #0f1115;
+      --pure-light: #ffffff;
+      --stardust: #94a3b8;
+      --dim-boundary: rgba(30, 41, 59, 0.5);
+      --bitcoin-orange: #f7931a;
+      --burnt-orange: #ea580c;
+      --digital-gold: #ffd600;
+      --orange-glow: rgba(247, 147, 26, 0.5);
+      
+      /* 
+         Typography Stack - Robust System Fallbacks 
+         No external dependencies to ensure rendering during captive portal interception.
+      */
+      --font-technical: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, 'Consolas', 'Liberation Mono', monospace;
+      --font-display: system-ui, -apple-system, 'Segoe UI Variable Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      --font-body: system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--void);
+      color: var(--pure-light);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Signature Grid Pattern (Pure CSS) */
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-size: 50px 50px;
+      background-image:
+        linear-gradient(to right, var(--dim-boundary) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--dim-boundary) 1px, transparent 1px);
+      mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+      pointer-events: none;
+      opacity: 0.4;
+    }
+
+    /* Ambient Glows */
+    .ambient-glow {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: var(--bitcoin-orange);
+      filter: blur(120px);
+      opacity: 0.05;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-1 { top: -100px; right: -100px; }
+    .glow-2 { bottom: -100px; left: -100px; }
+
+    .main-container {
+      width: 100%;
+      max-width: 440px;
+      padding: 2rem;
+      z-index: 10;
+      text-align: center;
+    }
+
+    header {
+      margin-bottom: 3rem;
+      position: relative;
+    }
+
+    .logo-container {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .logo-orb {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, var(--burnt-orange), var(--bitcoin-orange));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 30px var(--orange-glow);
+      position: relative;
+      z-index: 2;
+    }
+
+    .logo-ring {
+      position: absolute;
+      inset: -10px;
+      border: 1px solid var(--bitcoin-orange);
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: spin 10s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      margin-bottom: 0.5rem;
+    }
+
+    .logo span {
+      background: linear-gradient(to right, var(--bitcoin-orange), var(--digital-gold));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .tagline {
+      font-family: var(--font-technical);
+      color: var(--stardust);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.25em;
+    }
+
+    /* Technical Card */
+    .card {
+      background-color: var(--dark-matter);
+      padding: 3rem 2.5rem;
+      border-radius: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      position: relative;
+      /* backdrop-filter is widely supported locally */
+      backdrop-filter: blur(10px);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(247, 147, 26, 0.3);
+      box-shadow: 0 0 30px -10px rgba(247, 147, 26, 0.15);
+    }
+
+    /* Corner Borders */
+    .card::before, .card::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      pointer-events: none;
+    }
+    .card::before {
+      top: 15px; left: 15px;
+      border-top: 2px solid var(--bitcoin-orange);
+      border-left: 2px solid var(--bitcoin-orange);
+      opacity: 0.5;
+    }
+    .card::after {
+      bottom: 15px; right: 15px;
+      border-bottom: 2px solid var(--digital-gold);
+      border-right: 2px solid var(--digital-gold);
+      opacity: 0.5;
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .card-subtitle {
+      color: var(--stardust);
+      font-size: 0.95rem;
+      margin-bottom: 2.5rem;
+    }
+
+    /* Terminal Inputs */
+    .input-wrapper {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: none;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      padding: 1.25rem 1rem;
+      color: var(--pure-light);
+      font-family: var(--font-technical);
+      font-size: 1.25rem;
+      text-align: center;
+      transition: all 0.2s ease;
+      letter-spacing: 0.15em;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-bottom-color: var(--bitcoin-orange);
+      background: rgba(247, 147, 26, 0.05);
+      box-shadow: 0 10px 20px -10px rgba(247, 147, 26, 0.2);
+    }
+
+    .input-field::placeholder {
+      color: rgba(255, 255, 255, 0.2);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+    }
+
+    /* Bitcoin CTA Button */
+    .btn-submit {
+      width: 100%;
+      padding: 1.1rem;
+      border-radius: 9999px;
+      border: none;
+      background: linear-gradient(to right, var(--burnt-orange), var(--bitcoin-orange));
+      color: var(--pure-light);
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 20px -5px var(--burnt-orange);
+      margin-top: 1rem;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px -5px var(--bitcoin-orange);
+      background: linear-gradient(to right, var(--bitcoin-orange), var(--digital-gold));
+    }
+
+    .btn-submit:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    /* Messages */
+    .message {
+      margin-top: 1.5rem;
+      font-family: var(--font-technical);
+      font-size: 0.85rem;
+      min-height: 1.5em;
+    }
+    .error-message { color: #ff4b4b; text-shadow: 0 0 10px rgba(255, 75, 75, 0.3); }
+    .success-message { color: var(--digital-gold); text-shadow: 0 0 10px rgba(255, 214, 0, 0.3); }
+
+    footer {
+      position: absolute;
+      bottom: 2rem;
+      font-family: var(--font-technical);
+      color: rgba(255, 255, 255, 0.2);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4em;
+    }
+
+    /* Mobile Adjustments */
+    @media (max-width: 480px) {
+      .main-container { padding: 1.5rem; }
+      .card { padding: 2.5rem 1.5rem; }
+      .card-title { font-size: 1.5rem; }
+      .logo { font-size: 1.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <div class="main-container">
+    <header>
+      <div class="logo-container">
+        <div class="logo-ring"></div>
+        <div class="logo-orb">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </div>
+      </div>
+      <h1 class="logo">Rose<span>Net</span> Access</h1>
+      <p class="tagline">Connect. Surf. Chill.</p>
+    </header>
+
+    <main class="card">
+      <h2 class="card-title">Welcome</h2>
+      <p class="card-subtitle">Enter your voucher code to connect to the internet.</p>
+      
+      <form id="voucherForm">
+        <div class="input-wrapper">
+          <input type="text" id="voucherCode" placeholder="Your Voucher Code" class="input-field" required autocomplete="off" spellcheck="false" autofocus>
+        </div>
+        <button type="submit" class="btn-submit">Connect</button>
+      </form>
+      
+      <p id="errorMessage" class="message error-message"></p>
+      <p id="successMessage" class="message success-message"></p>
+    </main>
+  </div>
+
+  <footer>
+    Secure Protocol V3.0
+  </footer>
+
+  <script>
+    document.getElementById('voucherForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const voucherCode = document.getElementById('voucherCode').value.trim();
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+      const btn = event.target.querySelector('button');
+      
+      errorMessage.textContent = '';
+      successMessage.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Connecting...';
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientIP = urlParams.get('ip');
+      const clientMAC = urlParams.get('mac');
+      const token = urlParams.get('token');
+
+      if (!clientIP || !clientMAC || !token) {
+        errorMessage.textContent = 'Required information is missing. Please reconnect to WiFi.';
+        btn.disabled = false;
+        btn.textContent = 'Connect';
+        return;
+      }
+      try {
+        const response = await fetch(`/binauth-stage?voucher=${voucherCode}&ip=${clientIP}&mac=${clientMAC}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unknown error');
+        
+        successMessage.textContent = `Success! Access for ${data.duration} minutes. Redirecting...`;
+        btn.textContent = 'Connected';
+        
+        setTimeout(() => {
+          window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+        }, 1200);
+      } catch (error) {
+        errorMessage.textContent = `Error: ${error.message}`;
+        btn.disabled = false;
+        btn.textContent = 'Connect';
+      }
+    });
+
+    // Auto-check for existing sessions
+    (async function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientMAC = urlParams.get('mac');
+      const token = urlParams.get('token');
+      if (clientMAC && token) {
+        try {
+          const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
+          if (resp.ok) {
+            window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+          }
+        } catch (e) {}
+      }
+    })();
+  </script>
+</body>
+</html>
