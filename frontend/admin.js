@@ -13,6 +13,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const passwordChangeMessage = document.getElementById('passwordChangeMessage');
     const settingsButton = document.getElementById('settingsButton');
 
+    // Bitcoin DeFi Colors
+    const colors = {
+        orange: '#f7931a',
+        burntOrange: '#ea580c',
+        gold: '#ffd600',
+        void: '#030304',
+        darkMatter: '#0f1115',
+        stardust: '#94a3b8',
+        pureLight: '#ffffff',
+        dimBoundary: 'rgba(30, 41, 59, 0.5)'
+    };
+
     // Chart variables
     let voucherSalesChart, voucherStatusChart, trafficByZoneChart;
     
@@ -75,7 +87,10 @@ document.addEventListener('DOMContentLoaded', function() {
     async function handleLogin(e) {
         e.preventDefault();
         const password = document.getElementById('password').value;
+        const btn = e.target.querySelector('button');
         loginError.textContent = '';
+        btn.disabled = true;
+        btn.textContent = 'Syncing...';
 
         try {
             const response = await fetch('/admin/login', {
@@ -85,11 +100,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Login failed');
+                throw new Error(data.error || 'Identity rejection');
             }
             showAppView();
         } catch (error) {
-            loginError.textContent = error.message;
+            loginError.textContent = `REJECTED: ${error.message}`;
+            btn.disabled = false;
+            btn.textContent = 'Initialize Command';
         }
     }
     
@@ -106,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/admin/stats');
             if (response.status === 401) { return handleLogout(); }
-            if (!response.ok) throw new Error('Failed to load dashboard stats');
+            if (!response.ok) throw new Error('Network sync failure');
             
             const data = await response.json();
 
@@ -119,9 +136,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const topPlansList = document.getElementById('top-plans-list');
             topPlansList.innerHTML = '';
             if (data.top_plans && data.top_plans.length > 0) {
-                 topPlansList.innerHTML = data.top_plans.map(plan => `<li>${plan.name} (${plan.sales} sold)</li>`).join('');
+                 topPlansList.innerHTML = data.top_plans.map(plan => `<li><span>${plan.name}</span> <span style="color:var(--bitcoin-orange)">${plan.sales} HITS</span></li>`).join('');
             } else {
-                topPlansList.innerHTML = '<li>No plan sales data available.</li>';
+                topPlansList.innerHTML = '<li>Void ledger: no active plans.</li>';
             }
 
             if (data.sales_stats) renderVoucherSalesChart(data.sales_stats);
@@ -129,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.traffic_by_zone) renderTrafficByZoneChart(data.traffic_by_zone);
 
         } catch (error) {
-            console.error("Failed to load dashboard data:", error);
+            console.error("Dashboard Sync Error:", error);
         }
     }
 
@@ -138,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/admin/vouchers');
             if (response.status === 401) { return handleLogout(); }
-            if (!response.ok) throw new Error('Failed to load vouchers');
+            if (!response.ok) throw new Error('Ledger fetch failure');
             
             const vouchers = await response.json();
             voucherList.innerHTML = '';
@@ -159,21 +176,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const startTime = new Date(voucher.start_time);
             const expires = new Date(startTime.getTime() + voucher.duration * 60000);
             if (new Date() > expires) {
-                status = '<span class="status-chip status-expired">Expired</span>';
+                status = '<span class="status-chip status-expired">Purged</span>';
             } else {
-                status = `<span class="status-chip status-active">Active</span>`;
+                status = `<span class="status-chip status-active">Live</span>`;
             }
-            usedBy = voucher.user_mac || 'N/A';
+            usedBy = `<span style="font-family:var(--font-technical); font-size: 0.8rem; color:var(--stardust)">${voucher.user_mac || 'N/A'}</span>`;
         } else {
-            status = '<span class="status-chip status-unused">Unused</span>';
+            status = '<span class="status-chip status-unused">Staged</span>';
             usedBy = '—';
         }
 
         row.innerHTML = `
-            <td>${voucher.name || 'N/A'}</td>
-            <td>${voucher.code}</td>
+            <td style="font-weight:600">${voucher.name || 'N/A'}</td>
+            <td style="font-family:var(--font-technical); color:var(--bitcoin-orange)">${voucher.code}</td>
             <td>${formatDuration(voucher.duration)}</td>
-            <td>$${(voucher.price || 0).toFixed(2)}</td>
+            <td style="color:var(--digital-gold)">$${(voucher.price || 0).toFixed(2)}</td>
             <td>${status}</td>
             <td>${usedBy}</td>
             <td>
@@ -194,6 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const voucherName = document.getElementById('voucherName').value.trim();
         const price = parseFloat(document.getElementById('price').value) || 0;
         const isReusable = document.getElementById('isReusable').checked;
+        const btn = e.target.querySelector('button');
 
         let durationInMinutes = duration;
         if (durationUnit === 'days') durationInMinutes = duration * 24 * 60;
@@ -207,6 +225,9 @@ document.addEventListener('DOMContentLoaded', function() {
             ...(code && { code })
         };
 
+        btn.disabled = true;
+        btn.textContent = 'Minting...';
+
         try {
             const response = await fetch('/admin/add', {
                 method: 'POST',
@@ -215,20 +236,22 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) {
                 const err = await response.json();
-                throw new Error(err.error || 'Failed to add voucher');
+                throw new Error(err.error || 'Failed to mint signature');
             }
             
             await response.json();
             loadVouchers();
             addVoucherForm.reset();
-
         } catch (error) {
             alert(error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Mint Signature';
         }
     }
 
     window.deleteVoucher = async function(id) {
-        if (!confirm('Are you sure you want to delete this voucher?')) return;
+        if (!confirm('Purge this signature from the ledger?')) return;
 
         try {
             const response = await fetch('/admin/delete', {
@@ -238,7 +261,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Failed to delete voucher');
+                throw new Error(data.error || 'Failed to purge signature');
             }
             document.querySelector(`tr[data-id='${id}']`).remove();
         } catch (error) {
@@ -255,8 +278,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const confirmNewPassword = document.getElementById('confirmNewPassword').value;
 
         if (newPassword !== confirmNewPassword) {
-            passwordChangeMessage.textContent = 'New passwords do not match.';
-            passwordChangeMessage.style.color = '#EF4444';
+            passwordChangeMessage.textContent = 'KEY_MISMATCH: New signatures do not match.';
+            passwordChangeMessage.style.color = '#ff4b4b';
             return;
         }
 
@@ -267,18 +290,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Failed to change password');
+            if (!response.ok) throw new Error(data.error || 'Chain rejection');
             
-            passwordChangeMessage.textContent = 'Password changed successfully!';
-            passwordChangeMessage.style.color = '#10B981';
+            passwordChangeMessage.textContent = 'SIGNATURE_UPDATED: Network key synchronized.';
+            passwordChangeMessage.style.color = colors.gold;
             changePasswordForm.reset();
         } catch (error) {
-            passwordChangeMessage.textContent = error.message;
-            passwordChangeMessage.style.color = '#EF4444';
+            passwordChangeMessage.textContent = `ERROR: ${error.message}`;
+            passwordChangeMessage.style.color = '#ff4b4b';
         }
     }
 
     // --- Chart Rendering ---
+    const chartDefaults = {
+        color: colors.stardust,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        font: { family: "'Inter', sans-serif" }
+    };
+
     function renderVoucherSalesChart(data) {
         const ctx = document.getElementById('voucherSalesChart').getContext('2d');
         if (voucherSalesChart) voucherSalesChart.destroy();
@@ -289,15 +318,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 datasets: [{
                     label: 'Voucher Sales',
                     data: data.data,
-                    backgroundColor: 'rgba(144, 202, 249, 0.6)',
-                    borderColor: 'rgba(144, 202, 249, 1)',
-                    borderWidth: 1,
-                    borderRadius: 4,
+                    backgroundColor: colors.orange + '99',
+                    borderColor: colors.orange,
+                    borderWidth: 2,
+                    borderRadius: 8,
                 }]
             },
             options: {
                 responsive: true,
-                scales: { y: { beginAtZero: true } },
+                scales: { 
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: colors.stardust }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: colors.stardust }
+                    }
+                },
                 plugins: { legend: { display: false } }
             }
         });
@@ -309,16 +348,23 @@ document.addEventListener('DOMContentLoaded', function() {
         voucherStatusChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Active', 'Expired', 'Unused'],
+                labels: ['Live', 'Purged', 'Staged'],
                 datasets: [{
                     data: [data.active, data.expired, data.unused],
-                    backgroundColor: ['#A8D8EA', '#F4B8C3', '#F7E4A4'],
+                    backgroundColor: [colors.orange, '#ef4444', colors.stardust],
                     borderWidth: 0,
+                    hoverOffset: 15
                 }]
             },
             options: {
                 responsive: true,
-                plugins: { legend: { position: 'bottom' } }
+                plugins: { 
+                    legend: { 
+                        position: 'bottom',
+                        labels: { color: colors.stardust, usePointStyle: true, padding: 20 }
+                    }
+                },
+                cutout: '70%'
             }
         });
     }
@@ -331,11 +377,14 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: data.labels,
                 datasets: [{
-                    label: 'Traffic',
+                    label: 'Traffic Density',
                     data: data.data,
-                    backgroundColor: 'rgba(144, 202, 249, 0.2)',
-                    borderColor: 'rgba(144, 202, 249, 1)',
-                    pointBackgroundColor: 'rgba(144, 202, 249, 1)',
+                    backgroundColor: colors.orange + '33',
+                    borderColor: colors.orange,
+                    pointBackgroundColor: colors.orange,
+                    pointBorderColor: colors.void,
+                    pointHoverBackgroundColor: colors.pureLight,
+                    borderWidth: 2
                 }]
             },
             options: {
@@ -343,10 +392,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 plugins: { legend: { display: false } },
                 scales: {
                     r: {
-                        angleLines: { color: '#E5E7EB' },
-                        grid: { color: '#E5E7EB' },
-                        pointLabels: { color: '#6B7280' },
-                        ticks: { backdropColor: 'transparent' }
+                        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        pointLabels: { color: colors.stardust, font: { size: 10 } },
+                        ticks: { display: false }
                     }
                 }
             }
@@ -355,22 +404,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- Utility ---
     function formatDuration(minutes) {
-        if (minutes < 60) return `${minutes} min`;
-        if (minutes < 1440) return `${(minutes / 60).toFixed(1)} hours`;
-        return `${(minutes / 1440).toFixed(1)} days`;
+        if (minutes < 60) return `${minutes} MIN`;
+        if (minutes < 1440) return `${(minutes / 60).toFixed(1)} HRS`;
+        return `${(minutes / 1440).toFixed(1)} DAYS`;
     }
 
     // --- Initialization ---
     async function initializeApp() {
         try {
-            // Use a lightweight endpoint to check for a valid session
             const response = await fetch('/admin/stats'); 
             if (response.ok) {
                 showAppView();
-            } else { // Catches 401 Unauthorized
+            } else {
                 showLoginView();
             }
-        } catch (e) { // Catches network errors
+        } catch (e) {
             showLoginView();
         }
     }

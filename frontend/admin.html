@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WiFi Voucher Management</title>
+    <title>RoseNet Admin | Network Command</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --sidebar-bg: #1F2235;
-            --content-bg: #F4F5F9;
-            --card-bg: #FFFFFF;
-            --text-primary: #1F2235;
-            --text-secondary: #6e6a86;
-            --text-light: #e0def4;
-            --accent-blue: #90CAF9;
-            --accent-blue-active: #64B5F6;
-            --dark-card-bg: linear-gradient(145deg, #2a2d46, #1a1c2c);
-            --green-trend: #4CAF50;
-            --soft-blue: #A8D8EA;
-            --soft-pink: #F4B8C3;
-            --soft-yellow: #F7E4A4;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --void: #030304;
+            --dark-matter: #0f1115;
+            --pure-light: #ffffff;
+            --stardust: #94a3b8;
+            --dim-boundary: rgba(30, 41, 59, 0.5);
+            --bitcoin-orange: #f7931a;
+            --burnt-orange: #ea580c;
+            --digital-gold: #ffd600;
+            --orange-glow: rgba(247, 147, 26, 0.2);
+            --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            
+            --font-technical: 'JetBrains Mono', monospace;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Inter', sans-serif;
         }
 
         * {
@@ -34,8 +34,9 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--content-bg);
+            font-family: var(--font-body);
+            background-color: var(--void);
+            color: var(--pure-light);
             display: flex;
             height: 100vh;
             overflow: hidden;
@@ -48,30 +49,52 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: var(--sidebar-bg);
-            transition: opacity 0.5s ease;
+            background-color: var(--void);
+            position: relative;
+        }
+        
+        #loginView::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
         }
 
         .login-card {
-            background: var(--card-bg);
-            padding: 2.5rem;
-            border-radius: 1rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            background: var(--dark-matter);
+            padding: 3rem;
+            border-radius: 2rem;
+            border: 1px solid var(--dim-boundary);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             text-align: center;
+            z-index: 10;
         }
+        
         .login-card h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
+            font-family: var(--font-display);
+            font-size: 2rem;
             margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-        .login-card p {
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
+            background: linear-gradient(to right, var(--bitcoin-orange), var(--digital-gold));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
+        .login-card p {
+            color: var(--stardust);
+            font-size: 0.9rem;
+            margin-bottom: 2.5rem;
+            font-family: var(--font-technical);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* --- Global Form Styles --- */
         .input-group {
             margin-bottom: 1.5rem;
             text-align: left;
@@ -80,41 +103,54 @@
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
+            font-size: 0.75rem;
+            color: var(--stardust);
+            font-family: var(--font-technical);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
         .input-field {
             width: 100%;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            border: 1px solid #D1D5DB;
-            background-color: #F9FAFB;
-            color: var(--text-primary);
+            padding: 0.875rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--dim-boundary);
+            background-color: rgba(0,0,0,0.3);
+            color: var(--pure-light);
             font-size: 1rem;
+            font-family: var(--font-body);
+            transition: all 0.2s;
         }
         .input-field:focus {
             outline: none;
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 2px rgba(144, 202, 249, 0.5);
+            border-color: var(--bitcoin-orange);
+            box-shadow: 0 0 15px var(--orange-glow);
+            background-color: rgba(247, 147, 26, 0.05);
         }
 
-        .btn-submit {
+        .btn-submit, .btn-primary {
             width: 100%;
-            padding: 0.875rem;
-            border-radius: 0.5rem;
+            padding: 1rem;
+            border-radius: 9999px;
             border: none;
-            background-color: var(--accent-blue);
-            color: var(--text-primary);
+            background: linear-gradient(to right, var(--burnt-orange), var(--bitcoin-orange));
+            color: var(--pure-light);
+            font-family: var(--font-display);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(234, 88, 12, 0.3);
         }
-        .btn-submit:hover { background-color: var(--accent-blue-active); }
+        .btn-submit:hover, .btn-primary:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(247, 147, 26, 0.4);
+            background: linear-gradient(to right, var(--bitcoin-orange), var(--digital-gold));
+        }
         #loginError {
-            margin-top: 1rem;
-            color: #EF4444;
-            min-height: 1.25rem;
+            margin-top: 1.5rem;
+            color: #ff4b4b;
+            font-size: 0.85rem;
+            font-family: var(--font-technical);
         }
 
         /* --- Main App Layout --- */
@@ -126,29 +162,37 @@
 
         /* --- Sidebar --- */
         .sidebar {
-            width: 260px;
-            background-color: var(--sidebar-bg);
-            padding: 1.5rem;
+            width: 280px;
+            background-color: var(--dark-matter);
+            border-right: 1px solid var(--dim-boundary);
+            padding: 2rem 1.5rem;
             display: flex;
             flex-direction: column;
-            color: var(--text-light);
             flex-shrink: 0;
+            position: relative;
         }
+        
         .sidebar-header {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 2.5rem;
+            gap: 1rem;
+            margin-bottom: 3rem;
         }
         .sidebar-header .logo-icon {
-            background-color: var(--accent-blue);
-            border-radius: 0.5rem;
-            padding: 0.5rem;
-            color: var(--sidebar-bg);
+            background: linear-gradient(135deg, var(--burnt-orange), var(--bitcoin-orange));
+            border-radius: 0.75rem;
+            padding: 0.6rem;
+            color: var(--pure-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px var(--orange-glow);
         }
         .sidebar-header h1 {
-            font-size: 1.25rem;
-            font-weight: 600;
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
 
         .nav-menu {
@@ -161,135 +205,173 @@
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.875rem 1rem;
-            border-radius: 0.5rem;
+            padding: 0.9rem 1.25rem;
+            border-radius: 0.75rem;
             text-decoration: none;
-            color: var(--text-light);
+            color: var(--stardust);
             font-weight: 500;
-            transition: background-color 0.2s;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            border: 1px solid transparent;
         }
         .nav-link i {
             margin-right: 1rem;
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
         }
         .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--pure-light);
         }
         .nav-link.active {
-            background-color: var(--accent-blue);
-            color: var(--sidebar-bg);
+            background-color: rgba(247, 147, 26, 0.1);
+            color: var(--bitcoin-orange);
+            border-color: rgba(247, 147, 26, 0.2);
         }
 
         .sidebar-footer {
             margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--dim-boundary);
         }
         .system-status-card {
-            background: var(--dark-card-bg);
+            background: rgba(0,0,0,0.2);
             padding: 1rem;
-            border-radius: 0.75rem;
-            text-align: center;
-            margin-bottom: 1rem;
+            border-radius: 1rem;
+            border: 1px solid var(--dim-boundary);
+            margin-bottom: 1.5rem;
         }
         .system-status-card h4 {
             font-weight: 500;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.25rem;
+            font-size: 0.7rem;
+            color: var(--stardust);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
         }
         .status-indicator {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 0.5rem;
+            font-size: 0.85rem;
             font-weight: 600;
-            color: var(--green-trend);
+            color: #10b981;
         }
         .status-indicator::before {
             content: '';
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background-color: var(--green-trend);
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
         .sidebar-actions {
             display: flex;
-            justify-content: space-around;
+            justify-content: space-between;
             align-items: center;
         }
         .action-icon {
-            color: var(--text-secondary);
+            color: var(--stardust);
             cursor: pointer;
             padding: 0.5rem;
+            transition: color 0.2s;
         }
         .action-icon:hover {
-            color: var(--text-light);
+            color: var(--bitcoin-orange);
         }
 
 
         /* --- Main Content --- */
         .main-content {
             flex-grow: 1;
-            padding: 2rem;
+            padding: 2.5rem;
             display: flex;
             flex-direction: column;
             overflow-y: auto;
+            position: relative;
+        }
+        
+        .main-content::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-size: 60px 60px;
+            background-image: linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+            pointer-events: none;
+            z-index: -1;
         }
 
         .main-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
+            margin-bottom: 3rem;
         }
         .search-bar {
             position: relative;
-            width: 300px;
+            width: 340px;
         }
         .search-bar input {
             width: 100%;
-            padding: 0.75rem 1rem 0.75rem 2.5rem;
-            border-radius: 0.5rem;
-            border: none;
-            background-color: var(--card-bg);
-            color: var(--text-primary);
+            padding: 0.8rem 1rem 0.8rem 3rem;
+            border-radius: 9999px;
+            border: 1px solid var(--dim-boundary);
+            background-color: var(--dark-matter);
+            color: var(--pure-light);
+            font-size: 0.9rem;
         }
         .search-bar i {
             position: absolute;
-            left: 0.75rem;
+            left: 1.2rem;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--text-secondary);
+            color: var(--stardust);
+            width: 18px;
         }
 
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 1.5rem;
+            gap: 2rem;
         }
         .notification-bell {
             position: relative;
-            color: var(--text-secondary);
+            color: var(--stardust);
+            cursor: pointer;
         }
         .notification-bell .dot {
             position: absolute;
-            top: 0;
-            right: 0;
+            top: -2px;
+            right: -2px;
             width: 8px;
             height: 8px;
-            background-color: var(--accent-pink);
+            background-color: var(--bitcoin-orange);
             border-radius: 50%;
+            border: 2px solid var(--void);
         }
         .user-profile {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
-            background-color: var(--accent-blue);
+            background: linear-gradient(to bottom right, var(--bitcoin-orange), var(--digital-gold));
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
         .content-view {
             display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .content-view.active {
             display: block;
@@ -311,31 +393,56 @@
         }
 
         .card {
-            background-color: var(--card-bg);
-            padding: 1.5rem;
-            border-radius: 1rem;
+            background-color: var(--dark-matter);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            border: 1px solid var(--dim-boundary);
             box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
         }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 4px; height: 100%;
+            background: var(--bitcoin-orange);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .card:hover::before { opacity: 1; }
+
         .card-header {
-            color: var(--text-secondary);
+            color: var(--stardust);
             font-weight: 500;
+            font-size: 0.75rem;
+            font-family: var(--font-technical);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
             margin-bottom: 0.5rem;
         }
         .card-value {
-            font-size: 2rem;
+            font-family: var(--font-display);
+            font-size: 2.25rem;
             font-weight: 700;
-            color: var(--text-primary);
+            color: var(--pure-light);
+            letter-spacing: -0.02em;
         }
         .card-trend {
             display: flex;
             align-items: center;
             gap: 0.25rem;
-            color: var(--green-trend);
+            color: #10b981;
             font-weight: 600;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
         }
         .card-icon {
-            font-size: 1.5rem;
-            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.75rem;
+            border-radius: 1rem;
+            color: var(--bitcoin-orange);
         }
         .metric-card-header {
             display: flex;
@@ -344,80 +451,124 @@
         }
         
         .card-title {
-            font-size: 1.125rem;
+            font-family: var(--font-display);
+            font-size: 1.25rem;
             font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 1.5rem;
+            color: var(--pure-light);
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
         
         /* Table Styles */
         .table-wrapper {
-            overflow-x: auto;
+            margin-top: 1rem;
         }
         .data-table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0 0.5rem;
             text-align: left;
         }
-        .data-table th, .data-table td {
-            padding: 1rem;
-            border-bottom: 1px solid #E5E7EB;
-        }
         .data-table th {
+            padding: 1rem 1.5rem;
             font-weight: 600;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
+            font-size: 0.7rem;
+            color: var(--stardust);
             text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-family: var(--font-technical);
         }
         .data-table td {
-            color: var(--text-primary);
+            padding: 1.25rem 1.5rem;
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--pure-light);
+            font-size: 0.95rem;
+            border-top: 1px solid var(--dim-boundary);
+            border-bottom: 1px solid var(--dim-boundary);
         }
-        .data-table tbody tr:hover {
-            background-color: #F9FAFB;
+        .data-table td:first-child {
+            border-left: 1px solid var(--dim-boundary);
+            border-top-left-radius: 1rem;
+            border-bottom-left-radius: 1rem;
+        }
+        .data-table td:last-child {
+            border-right: 1px solid var(--dim-boundary);
+            border-top-right-radius: 1rem;
+            border-bottom-right-radius: 1rem;
+        }
+        .data-table tbody tr:hover td {
+            background-color: rgba(247, 147, 26, 0.05);
+            border-color: rgba(247, 147, 26, 0.2);
         }
         .status-chip {
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
             font-weight: 600;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-        .status-active { background-color: #D1FAE5; color: #065F46; }
-        .status-expired { background-color: #FEE2E2; color: #991B1B; }
-        .status-unused { background-color: #FEF3C7; color: #92400E; }
+        .status-active { background-color: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .status-expired { background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .status-unused { background-color: rgba(247, 147, 26, 0.1); color: var(--bitcoin-orange); border: 1px solid rgba(247, 147, 26, 0.2); }
+        
         .action-button {
-            background: none;
-            border: none;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--dim-boundary);
+            width: 36px;
+            height: 36px;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            color: var(--text-secondary);
+            color: var(--stardust);
+            transition: all 0.2s;
         }
-        .action-button:hover { color: #EF4444; }
+        .action-button:hover { 
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444; 
+            border-color: rgba(239, 68, 68, 0.2);
+        }
 
-        /* Form Styles */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
+        /* Top Plans List */
+        #top-plans-list {
+            list-style: none;
         }
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
+        #top-plans-list li {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            background: rgba(255,255,255,0.02);
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-technical);
+            font-size: 0.9rem;
+            border: 1px solid var(--dim-boundary);
         }
-        .btn-primary {
-            background-color: var(--accent-blue);
-            color: var(--text-primary);
+        #top-plans-list li::before {
+            content: 'BLOCK';
+            font-size: 0.6rem;
+            color: var(--bitcoin-orange);
+            margin-right: 1rem;
+            opacity: 0.6;
         }
-        .btn-primary:hover { background-color: var(--accent-blue-active); }
 
-        .hidden {
-            display: none;
+        .hidden { display: none; }
+
+        @media (max-width: 1200px) {
+            .grid-4-cols { grid-template-columns: repeat(2, 1fr); }
+            .grid-3-cols { grid-template-columns: 1fr; }
         }
-        .visually-hidden {
-            opacity: 0;
-            pointer-events: none;
+        @media (max-width: 768px) {
+            .sidebar { width: 80px; padding: 2rem 1rem; }
+            .sidebar-header h1, .nav-link span { display: none; }
+            .nav-link { justify-content: center; padding: 1rem; }
+            .nav-link i { margin-right: 0; }
+            .grid-4-cols, .grid-2-cols { grid-template-columns: 1fr; }
         }
 
     </style>
@@ -426,14 +577,14 @@
     <!-- Login View -->
     <div id="loginView">
         <div class="login-card">
-            <h1>Admin Login</h1>
-            <p>Welcome to the WiFi Admin dashboard.</p>
+            <h1>RoseNet Admin</h1>
+            <p>Authorization Required</p>
             <form id="loginForm">
                 <div class="input-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" class="input-field" required>
+                    <label for="password">Network Signature</label>
+                    <input type="password" id="password" class="input-field" placeholder="••••••••" required>
                 </div>
-                <button type="submit" class="btn-submit">Login</button>
+                <button type="submit" class="btn-submit">Initialize Command</button>
                 <p id="loginError"></p>
             </form>
         </div>
@@ -444,49 +595,39 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo-icon"><i data-feather="wifi"></i></div>
-                <h1>WiFi Admin</h1>
+                <div class="logo-icon"><i data-feather="zap"></i></div>
+                <h1>RoseNet</h1>
             </div>
             <ul class="nav-menu">
                 <li class="nav-item">
                     <a href="#dashboard" class="nav-link active" data-view="dashboard">
-                        <i data-feather="home"></i> Dashboard
+                        <i data-feather="terminal"></i> <span>Console</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="#vouchers" class="nav-link" data-view="vouchers">
-                        <i data-feather="credit-card"></i> Voucher Management
+                        <i data-feather="key"></i> <span>Ledger</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="#sessions" class="nav-link" data-view="sessions">
-                        <i data-feather="users"></i> Active Sessions
+                        <i data-feather="activity"></i> <span>Active Nodes</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="#zones" class="nav-link" data-view="zones">
-                        <i data-feather="map-pin"></i> Hotspot Zones
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#logs" class="nav-link" data-view="logs">
-                        <i data-feather="file-text"></i> User Logs
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#reports" class="nav-link" data-view="reports">
-                        <i data-feather="bar-chart-2"></i> Revenue Reports
+                        <i data-feather="layers"></i> <span>Network Zones</span>
                     </a>
                 </li>
             </ul>
             <div class="sidebar-footer">
                 <div class="system-status-card">
-                    <h4>System Status</h4>
-                    <div class="status-indicator">Server Online</div>
+                    <h4>Node Status</h4>
+                    <div class="status-indicator">Online</div>
                 </div>
                 <div class="sidebar-actions">
                     <div class="action-icon" id="settingsButton"><i data-feather="settings"></i></div>
-                    <div class="action-icon" id="logoutButton"><i data-feather="log-out"></i></div>
+                    <div class="action-icon" id="logoutButton"><i data-feather="power"></i></div>
                 </div>
             </div>
         </aside>
@@ -496,7 +637,7 @@
             <header class="main-header">
                 <div class="search-bar">
                     <i data-feather="search"></i>
-                    <input type="text" placeholder="Search vouchers, users...">
+                    <input type="text" placeholder="Scan ledger for signatures...">
                 </div>
                 <div class="header-actions">
                     <div class="notification-bell">
@@ -509,62 +650,62 @@
 
             <!-- Dashboard View -->
             <div id="dashboard" class="content-view active">
-                <div class="grid grid-4-cols" style="margin-bottom: 1.5rem;">
+                <div class="grid grid-4-cols" style="margin-bottom: 2rem;">
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Total Revenue</div>
+                                <div class="card-header">Total Value</div>
                                 <div class="card-value" id="total-revenue">$0</div>
                             </div>
-                            <div class="card-icon"><i data-feather="dollar-sign"></i></div>
+                            <div class="card-icon"><i data-feather="database"></i></div>
                         </div>
                         <div class="card-trend" id="revenue-trend">+0%</div>
                     </div>
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Active Vouchers</div>
+                                <div class="card-header">Valid Signatures</div>
                                 <div class="card-value" id="active-vouchers">0</div>
                             </div>
-                             <div class="card-icon"><i data-feather="check-circle"></i></div>
+                             <div class="card-icon"><i data-feather="shield-check"></i></div>
                         </div>
                     </div>
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Total Data Consumed</div>
+                                <div class="card-header">Network Throughput</div>
                                 <div class="card-value" id="data-consumed">0 GB</div>
                             </div>
-                            <div class="card-icon"><i data-feather="bar-chart"></i></div>
+                            <div class="card-icon"><i data-feather="cpu"></i></div>
                         </div>
                     </div>
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Live Online Users</div>
+                                <div class="card-header">Active Peers</div>
                                 <div class="card-value" id="live-users">0</div>
                             </div>
-                            <div class="card-icon"><i data-feather="user"></i></div>
+                            <div class="card-icon"><i data-feather="users"></i></div>
                         </div>
                     </div>
                 </div>
-                <div class="grid grid-3-cols" style="margin-bottom: 1.5rem;">
+                <div class="grid grid-3-cols" style="margin-bottom: 2rem;">
                     <div class="card">
-                        <h3 class="card-title">Voucher Sales Statistics</h3>
+                        <h3 class="card-title"><i data-feather="trending-up" style="color:var(--bitcoin-orange)"></i> Value Accrual</h3>
                         <canvas id="voucherSalesChart"></canvas>
                     </div>
                     <div class="card">
-                        <h3 class="card-title">Voucher Status</h3>
+                        <h3 class="card-title"><i data-feather="pie-chart" style="color:var(--digital-gold)"></i> Asset Status</h3>
                         <canvas id="voucherStatusChart"></canvas>
                     </div>
                 </div>
                 <div class="grid grid-2-cols">
                     <div class="card">
-                        <h3 class="card-title">Top Selling Plans</h3>
+                        <h3 class="card-title"><i data-feather="star" style="color:var(--bitcoin-orange)"></i> Premium Plans</h3>
                         <ul id="top-plans-list"></ul>
                     </div>
                     <div class="card">
-                        <h3 class="card-title">Traffic by Zone</h3>
+                        <h3 class="card-title"><i data-feather="map" style="color:var(--stardust)"></i> Regional Traffic</h3>
                         <canvas id="trafficByZoneChart"></canvas>
                     </div>
                 </div>
@@ -572,19 +713,19 @@
 
             <!-- Voucher Management View -->
             <div id="vouchers" class="content-view">
-                <div class="card" style="margin-bottom: 1.5rem;">
-                    <h3 class="card-title">Add New Voucher</h3>
-                    <form id="addVoucherForm" class="form-grid">
+                <div class="card" style="margin-bottom: 2rem;">
+                    <h3 class="card-title"><i data-feather="plus-circle" style="color:var(--bitcoin-orange)"></i> Mint New Signature</h3>
+                    <form id="addVoucherForm" class="grid grid-4-cols" style="gap: 1.5rem;">
                         <div class="input-group">
-                            <label for="voucherName">Voucher Name (e.g., 1 Day Pass)</label>
-                            <input type="text" id="voucherName" class="input-field" placeholder="Voucher Name">
+                            <label>Plan Label</label>
+                            <input type="text" id="voucherName" class="input-field" placeholder="e.g. 24H_ORBIT">
                         </div>
                         <div class="input-group">
-                            <label for="duration">Duration</label>
-                            <input type="number" id="duration" class="input-field" placeholder="e.g., 1">
+                            <label>Duration</label>
+                            <input type="number" id="duration" class="input-field" placeholder="Value">
                         </div>
                         <div class="input-group">
-                            <label for="durationUnit">Unit</label>
+                            <label>Interval</label>
                             <select id="durationUnit" class="input-field">
                                 <option value="minutes">Minutes</option>
                                 <option value="days" selected>Days</option>
@@ -592,41 +733,39 @@
                             </select>
                         </div>
                          <div class="input-group">
-                            <label for="price">Price ($)</label>
-                            <input type="number" id="price" class="input-field" placeholder="e.g., 5.00">
+                            <label>Value ($)</label>
+                            <input type="number" id="price" class="input-field" placeholder="0.00">
                         </div>
                         <div class="input-group">
-                            <label for="code">Custom Code (optional)</label>
-                            <input type="text" id="code" class="input-field" placeholder="Leave blank for random">
+                            <label>Custom Hash (Optional)</label>
+                            <input type="text" id="code" class="input-field" placeholder="Auto-gen if blank">
                         </div>
-                        <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem;">
-                            <button type="submit" class="btn btn-primary">Add Voucher</button>
-                             <div style="display: flex; align-items: center;">
-                                <input type="checkbox" id="isReusable" style="width: 1rem; height: 1rem; margin-right: 0.5rem;">
-                                <label for="isReusable">Reusable</label>
+                        <div style="grid-column: span 3; display: flex; align-items: center; gap: 2rem;">
+                            <button type="submit" class="btn-primary" style="width: auto; padding: 0.875rem 3rem;">Mint Signature</button>
+                             <div style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" id="isReusable" style="width: 1.25rem; height: 1.25rem; accent-color: var(--bitcoin-orange); margin-right: 0.75rem;">
+                                <label for="isReusable" style="color: var(--stardust); font-family: var(--font-technical); font-size: 0.75rem; text-transform: uppercase;">Persistent Session</label>
                             </div>
                         </div>
                     </form>
                 </div>
 
                 <div class="card">
-                    <h3 class="card-title">Existing Vouchers</h3>
+                    <h3 class="card-title"><i data-feather="list" style="color:var(--stardust)"></i> Signature Ledger</h3>
                     <div class="table-wrapper">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Name</th>
-                                    <th>Code</th>
-                                    <th>Duration</th>
-                                    <th>Price</th>
-                                    <th>Status</th>
-                                    <th>Used By</th>
-                                    <th>Actions</th>
+                                    <th>Label</th>
+                                    <th>Hash</th>
+                                    <th>Limit</th>
+                                    <th>Value</th>
+                                    <th>State</th>
+                                    <th>Peer MAC</th>
+                                    <th>Op</th>
                                 </tr>
                             </thead>
-                            <tbody id="voucherList">
-                                <!-- Vouchers will be dynamically inserted here -->
-                            </tbody>
+                            <tbody id="voucherList"></tbody>
                         </table>
                     </div>
                 </div>
@@ -635,31 +774,28 @@
              <!-- Settings View -->
             <div id="settings" class="content-view">
                 <div class="card">
-                    <h3 class="card-title">Change Admin Password</h3>
-                    <form id="changePasswordForm" style="max-width: 400px;">
+                    <h3 class="card-title"><i data-feather="shield" style="color:var(--bitcoin-orange)"></i> Update Command Hash</h3>
+                    <form id="changePasswordForm" style="max-width: 440px;">
                         <div class="input-group">
-                            <label for="oldPassword">Current Password</label>
+                            <label>Current Key</label>
                             <input type="password" id="oldPassword" class="input-field" required>
                         </div>
                          <div class="input-group">
-                            <label for="newPassword">New Password</label>
+                            <label>New Network Key</label>
                             <input type="password" id="newPassword" class="input-field" required>
                         </div>
                          <div class="input-group">
-                            <label for="confirmNewPassword">Confirm New Password</label>
+                            <label>Confirm Key</label>
                             <input type="password" id="confirmNewPassword" class="input-field" required>
                         </div>
-                        <button type="submit" class="btn btn-primary">Change Password</button>
-                        <p id="passwordChangeMessage" style="margin-top: 1rem; min-height: 1.25rem;"></p>
+                        <button type="submit" class="btn-primary">Update Signature</button>
+                        <p id="passwordChangeMessage" style="margin-top: 1.5rem; font-family: var(--font-technical); font-size: 0.85rem;"></p>
                     </form>
                 </div>
             </div>
             
-            <!-- Other placeholder views -->
-            <div id="sessions" class="content-view"><div class="card"><h3 class="card-title">Active Sessions (Coming Soon)</h3></div></div>
-            <div id="zones" class="content-view"><div class="card"><h3 class="card-title">Hotspot Zones (Coming Soon)</h3></div></div>
-            <div id="logs" class="content-view"><div class="card"><h3 class="card-title">User Logs (Coming Soon)</h3></div></div>
-            <div id="reports" class="content-view"><div class="card"><h3 class="card-title">Revenue Reports (Coming Soon)</h3></div></div>
+            <div id="sessions" class="content-view"><div class="card"><h3 class="card-title">Live Peer Network (Syncing...)</h3></div></div>
+            <div id="zones" class="content-view"><div class="card"><h3 class="card-title">Network Topology (Syncing...)</h3></div></div>
 
         </main>
     </div>
