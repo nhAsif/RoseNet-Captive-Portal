@@ -41,16 +41,16 @@ The RoseNet Access Portal operates entirely on the OpenWrt router, comprising th
 ### Go Backend (`voucher_server`)
 
 *   **Language**: Go (Golang)
-*   **Database**: SQLite (using `modernc.org/sqlite` for CGO-free builds)
-*   **Database Location (on router)**: `/data/voucher.db`
+*   **Database**: JSON-based Persistence (Thread-safe document store)
+*   **Database Location (on router)**: `/data/voucher.json` and `/data/settings.json`
 *   **Log File (on router)**: `/tmp/voucher.log`
 
 ### Frontend
 
 Designed for extreme lightness and performance, crucial for captive portal environments.
 
-*   **`index.html` (User Voucher Page)**: The initial page users encounter, featuring a form for voucher code entry. Utilizes embedded CSS and vanilla JavaScript for instant loading.
-*   **`admin.html` (Administrator Panel)**: A single-page application for comprehensive voucher management (login, listing, adding, deleting vouchers).
+*   **`index.html` (User Voucher Page)**: The themed entry page users encounter. Support for multiple visual styles including corporate, modern, and retro-music.
+*   **`admin.html` (Administrator Panel)**: A single-page application for comprehensive voucher management, system statistics, and theme configuration.
 
 ### NoDogSplash Integration
 
@@ -59,10 +59,11 @@ The integration with NoDogSplash is fundamental to the captive portal functional
 1.  A user connects to the Wi-Fi network.
 2.  NoDogSplash intercepts the user's initial HTTP request and redirects them to its `splash.html` page (`/etc/nodogsplash/htdocs/splash.html`).
 3.  This `splash.html` contains a meta-refresh that immediately redirects the user to the RoseNet Access Portal's Go-powered voucher page (e.g., `http://192.168.100.1:7891`), forwarding essential parameters like `ip`, `mac`, and `token`.
-4.  The user enters a valid voucher code on the `index.html` page.
-5.  The frontend JavaScript validates the voucher with the Go backend.
-6.  Upon successful validation, the JavaScript constructs a special NoDogSplash authentication URL (e.g., `http://192.168.100.1:2050/nodogsplash_auth/?tok=...`) and redirects the user.
-7.  NoDogSplash processes this request, validates the token, and grants the user internet access for the duration specified by the voucher.
+4.  The user enters a valid voucher code on the portal page.
+5.  The frontend JavaScript validates the voucher and stages the session via `/binauth-stage`.
+6.  Upon successful validation, the user is redirected to the NoDogSplash authentication URL.
+7.  NoDogSplash calls `binauth.sh`, which queries the backend's `/binauth-check` to finalize the connection.
+8.  The user is granted internet access for the duration specified by the voucher.
 
 ## Installation & Deployment
 
@@ -139,37 +140,40 @@ The install script will automatically copy all required files from the extracted
 
 ### User Portal
 
-Users connecting to your Wi-Fi network will be redirected to the voucher entry page (`index.html`). They can enter a valid voucher code to gain internet access.
+Users connecting to your Wi-Fi network will be redirected to the voucher entry page. The visual style is determined by the "Portal Theme" setting in the admin panel.
 
 ### Administrator Panel
 
 Access the administrator panel via `admin.html` (e.g., `http://your_router_ip:7891/admin.html`).
-*   **Default Password**: `rosepinepink` (This is the initial default password. It is highly recommended to change this from the admin panel after the first login for security.).
+*   **Default Password**: `rosepinepink`
 *   **Features**:
-    *   Secure login.
-    *   View a list of all active and expired vouchers.
-    *   Add new vouchers with specified durations.
-    *   Delete existing vouchers by ID.
+    *   Secure login and password management.
+    *   Real-time dashboard with revenue and user statistics.
+    *   Voucher generation with customizable names, durations, and prices.
+    *   Theme management (Choose between Default, Modern, Corporate, or Music).
+    *   Global settings (Currency symbols, system configuration).
 
 ## Configuration
 
-*   **Default Admin Password**: The default administrator password is `rosepinepink`. This can be changed from the administrator panel after the first login. **It is strongly advised to change this to a strong, unique password before deploying the system in a production environment.**
-*   **Server Port**: The Go backend listens on port `7891` by default. This can be modified in `backend/main.go`.
-*   **NoDogSplash Configuration**: The `install.sh` script configures NoDogSplash. Review `/etc/nodogsplash/nodogsplash.conf` and `/etc/nodogsplash/htdocs/splash.html` if you need to customize NoDogSplash behavior further.
+*   **Default Admin Password**: The default administrator password is `rosepinepink`.
+*   **Server Port**: The Go backend listens on port `7891` by default.
+*   **Persistence**: Data is stored in `/data/` as JSON files. This ensures portability and easy backups without needing database drivers.
 
 ## API Endpoints
 
 The Go backend exposes the following API endpoints:
 
-*   `GET /`: Serves the `index.html` user voucher entry page.
-*   `GET /admin.html`: Serves the administrator panel.
-*   `GET /auth`: The primary authentication endpoint for voucher validation.
-    *   **Parameters**: `voucher` (string), `ip` (string), `mac` (string)
-    *   **Returns**: JSON object with `status` (string: "success" or "error") and `duration` (integer, in minutes, on success) or `error` (string message, on failure).
+*   `GET /`: Serves the themed user voucher entry page.
+*   `GET /auth`: Legacy authentication endpoint.
+*   `GET /binauth-stage`: Validates a voucher and stages a client MAC for NDS authentication.
+*   `GET /binauth-check`: Used by `binauth.sh` to verify if a client is authorized and return the remaining duration.
 *   `POST /admin/login`: Authenticates administrator access.
 *   `GET /admin/vouchers`: (Protected) Retrieves a list of all vouchers.
 *   `POST /admin/add`: (Protected) Adds a new voucher to the system.
 *   `POST /admin/delete`: (Protected) Deletes a voucher by its ID.
+*   `GET /admin/settings`: (Protected) Retrieves system settings.
+*   `POST /admin/update-settings`: (Protected) Updates system settings (e.g., active theme, currency).
+*   `GET /admin/stats`: (Protected) Provides dashboard statistics and chart data.
 
 ## Contributing
 

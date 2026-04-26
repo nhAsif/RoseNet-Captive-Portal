@@ -85,14 +85,34 @@ func main() {
 	http.HandleFunc("/admin/settings", authMiddleware(adminGetSettingsHandler))
 	http.HandleFunc("/admin/update-settings", authMiddleware(adminUpdateSettingsHandler))
 
-	// Serve frontend files from the absolute path where install.sh places them
-	fs := http.FileServer(http.Dir("/www/voucher/"))
-	http.Handle("/", fs)
+	// Serve the portal with theme support
+	http.HandleFunc("/", rootHandler)
 
 	if err := http.ListenAndServe(":7891", nil); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	// Serve static files (admin.html, admin.js, etc.)
+	if r.URL.Path != "/" && r.URL.Path != "/index.html" {
+		http.FileServer(http.Dir("/www/voucher/")).ServeHTTP(w, r)
+		return
 	}
 
+	// For the root or index.html, serve the themed template
+	theme, err := getSetting("active_theme")
+	if err != nil || theme == "" {
+		theme = "default"
+	}
+
+	themePath := fmt.Sprintf("/www/voucher/themes/%s.html", theme)
+	if _, err := os.Stat(themePath); os.IsNotExist(err) {
+		// Fallback to default theme if the selected one doesn't exist
+		themePath = "/www/voucher/themes/default.html"
+	}
+
+	http.ServeFile(w, r, themePath)
 }
 
 // validateVoucher checks if a voucher is valid and returns it along with an error message suitable for clients.
@@ -470,12 +490,23 @@ func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
 	// Sort plans by sales descending
 	// (for simplicity, we'll skip sorting in this example, but you could use sort.Slice)
 
+	// Calculate revenue trend (this month vs last month)
+	thisMonthKey := now.Format("2006-01")
+	lastMonthKey := now.AddDate(0, -1, 0).Format("2006-01")
+	thisMonthSales := salesByMonth[thisMonthKey]
+	lastMonthSales := salesByMonth[lastMonthKey]
+	if lastMonthSales > 0 {
+		revenueTrend = ((thisMonthSales - lastMonthSales) / lastMonthSales) * 100
+	} else if thisMonthSales > 0 {
+		revenueTrend = 100
+	}
+
 	stats := map[string]interface{}{
 		"total_revenue":   totalRevenue,
-		"revenue_trend":   revenueTrend, // Mock
+		"revenue_trend":   int(revenueTrend),
 		"active_vouchers": activeVouchers,
-		"data_consumed":   850,  // Mock
-		"live_users":      120,  // Mock
+		"data_consumed":   0,
+		"live_users":      activeVouchers,
 		"sales_stats": map[string]interface{}{
 			"labels": salesLabels,
 			"data":   salesData,
@@ -486,9 +517,9 @@ func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
 			"unused":  unusedCount,
 		},
 		"top_plans": planList,
-		"traffic_by_zone": map[string]interface{}{ // Mock
-			"labels": []string{"Lobby", "Cafe", "Outdoor", "Pool Area", "Conference Room"},
-			"data":   []int{300, 250, 180, 120, 90},
+		"traffic_by_zone": map[string]interface{}{
+			"labels": []string{"Zone A", "Zone B", "Zone C"},
+			"data":   []int{0, 0, 0},
 		},
 	}
 

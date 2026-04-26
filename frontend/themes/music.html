@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AsifNET [AUTH]</title>
+
+<style>
+:root{
+  --bg:#020b1a;
+  --fg:#00eaff;
+  --glow:rgba(0,234,255,.7);
+  --scan:rgba(0,234,255,.1);
+  --err:#ff005d;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  background:var(--bg);
+  color:var(--fg);
+  font-family:Courier New,monospace;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  text-shadow:0 0 5px var(--glow);
+  overflow:hidden;
+}
+
+/* CRT EFFECT */
+body::before,body::after{
+  content:'';
+  position:absolute;inset:0;
+  pointer-events:none;
+}
+body::before{
+  background:radial-gradient(circle,transparent 0%,rgba(0,0,0,.6) 100%);
+  animation:flicker .1s infinite;
+}
+body::after{
+  background:repeating-linear-gradient(
+    0deg,var(--scan) 0,var(--scan) 1px,
+    transparent 1px,transparent 4px);
+  animation:scan 10s linear infinite;
+}
+@keyframes scan{to{background-position-y:100vh}}
+@keyframes flicker{50%{opacity:.95}}
+
+.center{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:1;
+}
+
+/* BUTTONS */
+button{
+  background:transparent;
+  border:2px solid var(--fg);
+  color:var(--fg);
+  padding:1rem 2rem;
+  font-family:inherit;
+  font-size:1.1rem;
+  cursor:pointer;
+  transition:.2s;
+}
+button:hover{
+  background:var(--fg);
+  color:var(--bg);
+  text-shadow:none;
+}
+
+/* WELCOME SCREEN */
+#welcome{
+  text-align:center;
+}
+#welcome h1{
+  margin-bottom:1.5rem;
+}
+
+/* LOGIN SCREEN */
+#login{
+  display:none;
+  width:95%;
+  max-width:600px;
+  margin:auto;
+  padding:1rem;
+  border:2px solid var(--fg);
+  box-shadow:0 0 15px var(--glow) inset;
+  background:rgba(0,10,0,.15);
+  text-align:center;
+}
+
+.ascii{
+  font-size:.7rem;
+  white-space:pre-wrap;
+  margin-bottom:.5rem;
+}
+
+#visualizer{
+  height:70px;
+  display:flex;
+  gap:4px;
+  margin:.5rem 0 1rem;
+  align-items:flex-end;
+}
+.bar{
+  flex:1;
+  background:var(--fg);
+  box-shadow:0 0 10px var(--glow);
+  animation:bounce infinite ease-in-out;
+}
+@keyframes bounce{
+  0%,100%{height:15%}
+  50%{height:100%}
+}
+
+#log{
+  text-align:left;
+  min-height:7em;
+  margin-bottom:1rem;
+}
+.log{
+  opacity:0;
+  animation:type 1.5s forwards;
+  animation-delay:var(--d);
+  white-space:nowrap;
+  overflow:hidden;
+  border-right:.15em solid var(--fg);
+}
+@keyframes type{to{opacity:1;border-right:none}}
+
+.title{
+  font-size:1.1rem;
+  margin-bottom:.5rem;
+}
+
+form{
+  display:flex;
+  flex-direction:column;
+  gap:1rem;
+}
+input{
+  background:transparent;
+  border:2px solid var(--fg);
+  color:var(--fg);
+  padding:.75rem;
+  font-family:inherit;
+  text-align:center;
+}
+
+.message {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  min-height: 1.5em;
+}
+.error-message { color: var(--err); }
+.success-message { color: var(--fg); }
+
+footer{
+  text-align:center;
+  padding:1rem;
+  font-size:.85rem;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 🎵 MUSIC -->
+<audio id="bgMusic" loop>
+  <source src="music.mp3" type="audio/mpeg">
+</audio>
+
+<!-- 🌐 WELCOME SCREEN -->
+<div id="welcome" class="center">
+  <div class="welcome-card">
+    
+    <!-- Logo / Icon -->
+    <div class="logo">
+      🌐
+    </div>
+
+    <pre class="ascii">
+    ___         _ _____   ______________
+   /   |  _____(_) __/ | / / ____/_  __/
+  / /| | / ___/ / /_/  |/ / __/   / /   
+ / ___ |(__  ) / __/ /|  / /___  / /    
+/_/  |_/____/_/_/ /_/ |_/_____/ /_/     
+                                      
+[AsifNET v2.5]
+</pre>
+<button id="connectBtn" 
+  style="
+    background-color: #000; 
+    color: #00ff41; 
+    border: 2px solid #00ff41; 
+    padding: 12px 24px; 
+    font-size: 18px; 
+    font-weight: bold; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-family: 'Courier New', Courier, monospace;
+    animation: greenToCyan 2.5s ease-in-out infinite alternate;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+  ">
+  🚀 ওয়াই-ফাই কানেক্ট করুন
+
+  <style>
+    @keyframes greenToCyan {
+      0% { 
+        color: #00ff41; 
+        border-color: #00ff41; 
+        box-shadow: 0 0 15px #00ff41; 
+      }
+      100% { 
+        color: #00f2ff; 
+        border-color: #00f2ff; 
+        box-shadow: 0 0 15px #00f2ff; 
+      }
+    }
+  </style>
+</button>
+
+    <p class="footer-text">
+      সুপার ফাস্ট • নিরাপদ • ভরসাযোগ্য ইন্টারনেট
+    </p>
+
+  </div>
+</div>
+
+
+<!-- 🔐 LOGIN SCREEN -->
+<div id="login">
+
+<pre class="ascii">
+    ___         _ _____   ______________
+   /   |  _____(_) __/ | / / ____/_  __/
+  / /| | / ___/ / /_/  |/ / __/   / /   
+ / ___ |(__  ) / __/ /|  / /___  / /    
+/_/  |_/____/_/_/ /_/ |_/_____/ /_/     
+                                      
+[AsifNET v2.5]
+</pre>
+
+<div id="visualizer"></div>
+<div id="log"></div>
+
+<h1 class="title">> নেট চালাতে ভাউচার দিন...</h1>
+<p>[System Time: <span id="time"></span>]</p>
+
+<form id="voucherForm">
+  <input id="voucherCode" placeholder="[ভাউচার কোড]" required>
+  <button id="submitBtn">> লগইন করুন <<</button>
+</form>
+
+<p id="errorMessage" class="message error-message"></p>
+<p id="successMessage" class="message success-message"></p>
+
+</div>
+
+<footer>[session monitored] // Stay secure</footer>
+
+<script>
+/* ⏰ CLOCK */
+const timeEl=document.getElementById('time');
+setInterval(()=>timeEl.textContent=new Date().toUTCString(),1000);
+
+/* 📊 VISUALIZER */
+const viz=document.getElementById('visualizer');
+for(let i=0;i<24;i++){
+  const b=document.createElement('div');
+  b.className='bar';
+  b.style.animationDuration=`${.5+Math.random()}s`;
+  viz.appendChild(b);
+}
+
+/* 🧾 LOGS */
+const logs=[
+ '[BOOT] নেটওয়ার্ক চালু হচ্ছে...',
+ '[LOG] সিকিউর কানেকশন...',
+ '[OK] সার্ভার রেডি',
+ '[WARN] অথেনটিকেশন দরকার'
+];
+const logBox=document.getElementById('log');
+logs.forEach((m,i)=>{
+  const p=document.createElement('p');
+  p.textContent=m;
+  p.className='log';
+  p.style.setProperty('--d',`${i*1.2}s`);
+  logBox.appendChild(p);
+});
+
+/* 🎵 CONNECT BUTTON LOGIC */
+const btn=document.getElementById('connectBtn');
+const music=document.getElementById('bgMusic');
+music.volume=0.4;
+
+btn.addEventListener('click',()=>{
+  music.play().catch(()=>{});
+  document.getElementById('welcome').style.display='none';
+  document.getElementById('login').style.display='block';
+});
+
+/* 🚀 AUTH LOGIC */
+document.getElementById('voucherForm').addEventListener('submit', async function(event) {
+  event.preventDefault();
+  const voucherCode = document.getElementById('voucherCode').value.trim();
+  const errorMessage = document.getElementById('errorMessage');
+  const successMessage = document.getElementById('successMessage');
+  const submitBtn = document.getElementById('submitBtn');
+  
+  errorMessage.textContent = '';
+  successMessage.textContent = '';
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'কানেক্ট হচ্ছে...';
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const clientIP = urlParams.get('ip');
+  const clientMAC = urlParams.get('mac');
+  const token = urlParams.get('token');
+
+  if (!clientIP || !clientMAC || !token) {
+    errorMessage.textContent = 'Error: Missing IP/MAC/Token. Please reconnect to WiFi.';
+    submitBtn.disabled = false;
+    submitBtn.textContent = '>> লগইন করুন <<';
+    return;
+  }
+
+  try {
+    const response = await fetch(`/binauth-stage?voucher=${voucherCode}&ip=${clientIP}&mac=${clientMAC}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Unknown error');
+    
+    successMessage.textContent = `Success! ${data.duration} মিনিটের জন্য ইন্টারনেট চালু হয়েছে।`;
+    submitBtn.textContent = 'সংযুক্ত';
+    
+    setTimeout(() => {
+      window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+    }, 1200);
+  } catch (error) {
+    errorMessage.textContent = `ত্রুটি: ${error.message}`;
+    submitBtn.disabled = false;
+    submitBtn.textContent = '>> লগইন করুন <<';
+  }
+});
+
+// Auto-check for existing sessions
+(async function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const clientMAC = urlParams.get('mac');
+  const token = urlParams.get('token');
+  if (clientMAC && token) {
+    try {
+      const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
+      if (resp.ok) {
+        window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+      }
+    } catch (e) {}
+  }
+})();
+</script>
+
+</body>
+</html>

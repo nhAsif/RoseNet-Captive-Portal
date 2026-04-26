@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const generalSettingsForm = document.getElementById('generalSettingsForm');
     const settingsMessage = document.getElementById('settingsMessage');
     const currencySymbolInput = document.getElementById('currencySymbol');
+    const activeThemeInput = document.getElementById('activeTheme');
 
     let currencySymbol = '$';
 
@@ -64,6 +65,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 currencySymbolInput.value = currencySymbol;
                 updateCurrencyUI();
             }
+            if (settings.active_theme) {
+                activeThemeInput.value = settings.active_theme;
+            }
         } catch (error) {
             console.error('Error loading settings:', error);
         }
@@ -85,12 +89,16 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         settingsMessage.textContent = '';
         const newSymbol = currencySymbolInput.value.trim();
+        const newTheme = activeThemeInput.value;
 
         try {
             const response = await fetch('/admin/update-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ currency_symbol: newSymbol })
+                body: JSON.stringify({ 
+                    currency_symbol: newSymbol,
+                    active_theme: newTheme
+                })
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to update settings');
