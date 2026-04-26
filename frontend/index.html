@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>RoseNet Access Portal | Secure Connection</title>
+  <title>RoseNet Access Portal</title>
   <style>
     /* Bitcoin DeFi Design Tokens - Local Only Edition */
     :root {
@@ -305,19 +305,19 @@
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
         </div>
       </div>
-      <h1 class="logo">Rose<span>Net</span></h1>
-      <p class="tagline">Node: Alpha-Core</p>
+      <h1 class="logo">Rose<span>Net</span> Access</h1>
+      <p class="tagline">Connect. Surf. Chill.</p>
     </header>
 
     <main class="card">
-      <h2 class="card-title">Initialize Link</h2>
-      <p class="card-subtitle">Enter your cryptographic voucher to bridge to the network.</p>
+      <h2 class="card-title">Welcome</h2>
+      <p class="card-subtitle">Enter your voucher code to connect to the internet.</p>
       
       <form id="voucherForm">
         <div class="input-wrapper">
-          <input type="text" id="voucherCode" placeholder="Voucher Signature" class="input-field" required autocomplete="off" spellcheck="false" autofocus>
+          <input type="text" id="voucherCode" placeholder="Your Voucher Code" class="input-field" required autocomplete="off" spellcheck="false" autofocus>
         </div>
-        <button type="submit" class="btn-submit">Authorize</button>
+        <button type="submit" class="btn-submit">Connect</button>
       </form>
       
       <p id="errorMessage" class="message error-message"></p>
@@ -326,7 +326,7 @@
   </div>
 
   <footer>
-    Secure Protocol V2.1
+    Secure Protocol V3.0
   </footer>
 
   <script>
@@ -340,7 +340,7 @@
       errorMessage.textContent = '';
       successMessage.textContent = '';
       btn.disabled = true;
-      btn.textContent = 'Syncing...';
+      btn.textContent = 'Connecting...';
 
       const urlParams = new URLSearchParams(window.location.search);
       const clientIP = urlParams.get('ip');
@@ -348,26 +348,26 @@
       const token = urlParams.get('token');
 
       if (!clientIP || !clientMAC || !token) {
-        errorMessage.textContent = 'LINK_FAILURE: Params missing. Re-pair with node.';
+        errorMessage.textContent = 'Required information is missing. Please reconnect to WiFi.';
         btn.disabled = false;
-        btn.textContent = 'Authorize';
+        btn.textContent = 'Connect';
         return;
       }
       try {
         const response = await fetch(`/binauth-stage?voucher=${voucherCode}&ip=${clientIP}&mac=${clientMAC}`);
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Identity Rejected');
+        if (!response.ok) throw new Error(data.error || 'Unknown error');
         
-        successMessage.textContent = `GRANTED: ${data.duration}m. Bridging...`;
-        btn.textContent = 'Secured';
+        successMessage.textContent = `Success! Access for ${data.duration} minutes. Redirecting...`;
+        btn.textContent = 'Connected';
         
         setTimeout(() => {
           window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
         }, 1200);
       } catch (error) {
-        errorMessage.textContent = `REJECTION: ${error.message}`;
+        errorMessage.textContent = `Error: ${error.message}`;
         btn.disabled = false;
-        btn.textContent = 'Authorize';
+        btn.textContent = 'Connect';
       }
     });
 

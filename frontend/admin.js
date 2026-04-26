@@ -12,6 +12,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const changePasswordForm = document.getElementById('changePasswordForm');
     const passwordChangeMessage = document.getElementById('passwordChangeMessage');
     const settingsButton = document.getElementById('settingsButton');
+    const generalSettingsForm = document.getElementById('generalSettingsForm');
+    const settingsMessage = document.getElementById('settingsMessage');
+    const currencySymbolInput = document.getElementById('currencySymbol');
+
+    let currencySymbol = '$';
 
     // Bitcoin DeFi Colors
     const colors = {
@@ -36,6 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function showAppView() {
         appView.style.display = 'flex';
         loginView.style.display = 'none';
+        loadSettings();
         loadInitialData();
         setupNavLinks();
     }
@@ -45,6 +51,60 @@ document.addEventListener('DOMContentLoaded', function() {
         appView.style.display = 'none';
     }
     
+    // --- Settings ---
+    async function loadSettings() {
+        try {
+            const response = await fetch('/admin/settings');
+            if (response.status === 401) return handleLogout();
+            if (!response.ok) throw new Error('Failed to load settings');
+            const settings = await response.json();
+            
+            if (settings.currency_symbol) {
+                currencySymbol = settings.currency_symbol;
+                currencySymbolInput.value = currencySymbol;
+                updateCurrencyUI();
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+
+    function updateCurrencyUI() {
+        document.querySelectorAll('.currency-symbol').forEach(el => {
+            el.textContent = currencySymbol;
+        });
+        // Refresh dashboard and vouchers if they are currently visible to show new currency
+        if (document.getElementById('dashboard').classList.contains('active')) {
+            loadDashboardData();
+        } else if (document.getElementById('vouchers').classList.contains('active')) {
+            loadVouchers();
+        }
+    }
+
+    async function handleGeneralSettings(e) {
+        e.preventDefault();
+        settingsMessage.textContent = '';
+        const newSymbol = currencySymbolInput.value.trim();
+
+        try {
+            const response = await fetch('/admin/update-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currency_symbol: newSymbol })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to update settings');
+            
+            currencySymbol = newSymbol;
+            updateCurrencyUI();
+            settingsMessage.textContent = 'Settings saved successfully!';
+            settingsMessage.style.color = colors.gold;
+        } catch (error) {
+            settingsMessage.textContent = error.message;
+            settingsMessage.style.color = '#ff4b4b';
+        }
+    }
+
     // --- Navigation ---
     function setupNavLinks() {
         const navLinks = document.querySelectorAll('.nav-link');
@@ -100,13 +160,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Identity rejection');
+                throw new Error(data.error || 'Login failed');
             }
             showAppView();
         } catch (error) {
-            loginError.textContent = `REJECTED: ${error.message}`;
+            loginError.textContent = error.message;
             btn.disabled = false;
-            btn.textContent = 'Initialize Command';
+            btn.textContent = 'Login';
         }
     }
     
@@ -123,11 +183,11 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/admin/stats');
             if (response.status === 401) { return handleLogout(); }
-            if (!response.ok) throw new Error('Network sync failure');
+            if (!response.ok) throw new Error('Failed to load dashboard stats');
             
             const data = await response.json();
 
-            document.getElementById('total-revenue').textContent = `$${(data.total_revenue || 0).toLocaleString()}`;
+            document.getElementById('total-revenue').textContent = `${currencySymbol}${(data.total_revenue || 0).toLocaleString()}`;
             document.getElementById('revenue-trend').textContent = `+${(data.revenue_trend || 0)}%`;
             document.getElementById('active-vouchers').textContent = data.active_vouchers || 0;
             document.getElementById('data-consumed').textContent = `${(data.data_consumed || 0)} GB`;
@@ -136,9 +196,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const topPlansList = document.getElementById('top-plans-list');
             topPlansList.innerHTML = '';
             if (data.top_plans && data.top_plans.length > 0) {
-                 topPlansList.innerHTML = data.top_plans.map(plan => `<li><span>${plan.name}</span> <span style="color:var(--bitcoin-orange)">${plan.sales} HITS</span></li>`).join('');
+                 topPlansList.innerHTML = data.top_plans.map(plan => `<li><span>${plan.name}</span> <span style="color:var(--bitcoin-orange)">(${plan.sales} sold)</span></li>`).join('');
             } else {
-                topPlansList.innerHTML = '<li>Void ledger: no active plans.</li>';
+                topPlansList.innerHTML = '<li>No plan sales data available.</li>';
             }
 
             if (data.sales_stats) renderVoucherSalesChart(data.sales_stats);
@@ -146,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.traffic_by_zone) renderTrafficByZoneChart(data.traffic_by_zone);
 
         } catch (error) {
-            console.error("Dashboard Sync Error:", error);
+            console.error("Failed to load dashboard data:", error);
         }
     }
 
@@ -155,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/admin/vouchers');
             if (response.status === 401) { return handleLogout(); }
-            if (!response.ok) throw new Error('Ledger fetch failure');
+            if (!response.ok) throw new Error('Failed to load vouchers');
             
             const vouchers = await response.json();
             voucherList.innerHTML = '';
@@ -176,13 +236,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const startTime = new Date(voucher.start_time);
             const expires = new Date(startTime.getTime() + voucher.duration * 60000);
             if (new Date() > expires) {
-                status = '<span class="status-chip status-expired">Purged</span>';
+                status = '<span class="status-chip status-expired">Expired</span>';
             } else {
-                status = `<span class="status-chip status-active">Live</span>`;
+                status = `<span class="status-chip status-active">Active</span>`;
             }
             usedBy = `<span style="font-family:var(--font-technical); font-size: 0.8rem; color:var(--stardust)">${voucher.user_mac || 'N/A'}</span>`;
         } else {
-            status = '<span class="status-chip status-unused">Staged</span>';
+            status = '<span class="status-chip status-unused">Unused</span>';
             usedBy = '—';
         }
 
@@ -190,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <td style="font-weight:600">${voucher.name || 'N/A'}</td>
             <td style="font-family:var(--font-technical); color:var(--bitcoin-orange)">${voucher.code}</td>
             <td>${formatDuration(voucher.duration)}</td>
-            <td style="color:var(--digital-gold)">$${(voucher.price || 0).toFixed(2)}</td>
+            <td style="color:var(--digital-gold)">${currencySymbol}${(voucher.price || 0).toFixed(2)}</td>
             <td>${status}</td>
             <td>${usedBy}</td>
             <td>
@@ -226,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         btn.disabled = true;
-        btn.textContent = 'Minting...';
+        btn.textContent = 'Adding...';
 
         try {
             const response = await fetch('/admin/add', {
@@ -236,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) {
                 const err = await response.json();
-                throw new Error(err.error || 'Failed to mint signature');
+                throw new Error(err.error || 'Failed to add voucher');
             }
             
             await response.json();
@@ -246,12 +306,12 @@ document.addEventListener('DOMContentLoaded', function() {
             alert(error.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Mint Signature';
+            btn.textContent = 'Add Voucher';
         }
     }
 
     window.deleteVoucher = async function(id) {
-        if (!confirm('Purge this signature from the ledger?')) return;
+        if (!confirm('Are you sure you want to delete this voucher?')) return;
 
         try {
             const response = await fetch('/admin/delete', {
@@ -261,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Failed to purge signature');
+                throw new Error(data.error || 'Failed to delete voucher');
             }
             document.querySelector(`tr[data-id='${id}']`).remove();
         } catch (error) {
@@ -278,7 +338,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const confirmNewPassword = document.getElementById('confirmNewPassword').value;
 
         if (newPassword !== confirmNewPassword) {
-            passwordChangeMessage.textContent = 'KEY_MISMATCH: New signatures do not match.';
+            passwordChangeMessage.textContent = 'New passwords do not match.';
             passwordChangeMessage.style.color = '#ff4b4b';
             return;
         }
@@ -290,24 +350,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Chain rejection');
+            if (!response.ok) throw new Error(data.error || 'Failed to change password');
             
-            passwordChangeMessage.textContent = 'SIGNATURE_UPDATED: Network key synchronized.';
+            passwordChangeMessage.textContent = 'Password changed successfully!';
             passwordChangeMessage.style.color = colors.gold;
             changePasswordForm.reset();
         } catch (error) {
-            passwordChangeMessage.textContent = `ERROR: ${error.message}`;
+            passwordChangeMessage.textContent = error.message;
             passwordChangeMessage.style.color = '#ff4b4b';
         }
     }
 
     // --- Chart Rendering ---
-    const chartDefaults = {
-        color: colors.stardust,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        font: { family: "'Inter', sans-serif" }
-    };
-
     function renderVoucherSalesChart(data) {
         const ctx = document.getElementById('voucherSalesChart').getContext('2d');
         if (voucherSalesChart) voucherSalesChart.destroy();
@@ -348,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
         voucherStatusChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Live', 'Purged', 'Staged'],
+                labels: ['Active', 'Expired', 'Unused'],
                 datasets: [{
                     data: [data.active, data.expired, data.unused],
                     backgroundColor: [colors.orange, '#ef4444', colors.stardust],
@@ -377,7 +431,7 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: data.labels,
                 datasets: [{
-                    label: 'Traffic Density',
+                    label: 'Traffic',
                     data: data.data,
                     backgroundColor: colors.orange + '33',
                     borderColor: colors.orange,
@@ -404,9 +458,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- Utility ---
     function formatDuration(minutes) {
-        if (minutes < 60) return `${minutes} MIN`;
-        if (minutes < 1440) return `${(minutes / 60).toFixed(1)} HRS`;
-        return `${(minutes / 1440).toFixed(1)} DAYS`;
+        if (minutes < 60) return `${minutes} min`;
+        if (minutes < 1440) return `${(minutes / 60).toFixed(1)} hours`;
+        return `${(minutes / 1440).toFixed(1)} days`;
     }
 
     // --- Initialization ---
@@ -427,6 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
     logoutButton.addEventListener('click', handleLogout);
     addVoucherForm.addEventListener('submit', handleAddVoucher);
     changePasswordForm.addEventListener('submit', handleChangePassword);
+    generalSettingsForm.addEventListener('submit', handleGeneralSettings);
     
     initializeApp();
 });

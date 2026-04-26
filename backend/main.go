@@ -82,6 +82,8 @@ func main() {
 	http.HandleFunc("/admin/change-password", authMiddleware(adminChangePasswordHandler))
 	http.HandleFunc("/admin/logout", adminLogoutHandler)
 	http.HandleFunc("/admin/stats", authMiddleware(adminStatsHandler))
+	http.HandleFunc("/admin/settings", authMiddleware(adminGetSettingsHandler))
+	http.HandleFunc("/admin/update-settings", authMiddleware(adminUpdateSettingsHandler))
 
 	// Serve frontend files from the absolute path where install.sh places them
 	fs := http.FileServer(http.Dir("/www/voucher/"))
@@ -343,6 +345,54 @@ func adminChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
 		return
+	}
+
+	w.Write([]byte(`{"status": "success"}`))
+}
+
+func adminGetSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// We'll return all settings from the cache
+	// In database.go settingsCache is map[string]string
+	// We might want to filter out sensitive ones like admin_password
+	settings := make(map[string]string)
+	for k, v := range settingsCache {
+		if k != "admin_password" {
+			settings[k] = v
+		}
+	}
+
+	// Ensure currency_symbol exists, default to $
+	if _, ok := settings["currency_symbol"]; !ok {
+		settings["currency_symbol"] = "$"
+	}
+
+	json.NewEncoder(w).Encode(settings)
+}
+
+func adminUpdateSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var newSettings map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&newSettings); err != nil {
+		http.Error(w, `{"error": "Invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	for k, v := range newSettings {
+		// Only allow updating certain keys for safety
+		if k == "currency_symbol" {
+			err := setSetting(k, v)
+			if err != nil {
+				http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
+				return
+			}
+		}
 	}
 
 	w.Write([]byte(`{"status": "success"}`))

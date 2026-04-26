@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RoseNet Admin | Network Command</title>
+    <title>WiFi Voucher Management</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -89,9 +89,7 @@
             color: var(--stardust);
             font-size: 0.9rem;
             margin-bottom: 2.5rem;
-            font-family: var(--font-technical);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
+            font-family: var(--font-body);
         }
 
         /* --- Global Form Styles --- */
@@ -103,11 +101,8 @@
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
-            font-size: 0.75rem;
+            font-size: 0.875rem;
             color: var(--stardust);
-            font-family: var(--font-technical);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
         }
         .input-field {
             width: 100%;
@@ -150,7 +145,6 @@
             margin-top: 1.5rem;
             color: #ff4b4b;
             font-size: 0.85rem;
-            font-family: var(--font-technical);
         }
 
         /* --- Main App Layout --- */
@@ -416,10 +410,7 @@
         .card-header {
             color: var(--stardust);
             font-weight: 500;
-            font-size: 0.75rem;
-            font-family: var(--font-technical);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
+            font-size: 0.875rem;
             margin-bottom: 0.5rem;
         }
         .card-value {
@@ -474,11 +465,9 @@
         .data-table th {
             padding: 1rem 1.5rem;
             font-weight: 600;
-            font-size: 0.7rem;
+            font-size: 0.875rem;
             color: var(--stardust);
             text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-family: var(--font-technical);
         }
         .data-table td {
             padding: 1.25rem 1.5rem;
@@ -506,9 +495,7 @@
             padding: 0.35rem 0.85rem;
             border-radius: 9999px;
             font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            font-size: 0.875rem;
         }
         .status-active { background-color: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
         .status-expired { background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
@@ -545,16 +532,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-family: var(--font-technical);
             font-size: 0.9rem;
             border: 1px solid var(--dim-boundary);
-        }
-        #top-plans-list li::before {
-            content: 'BLOCK';
-            font-size: 0.6rem;
-            color: var(--bitcoin-orange);
-            margin-right: 1rem;
-            opacity: 0.6;
         }
 
         .hidden { display: none; }
@@ -577,14 +556,14 @@
     <!-- Login View -->
     <div id="loginView">
         <div class="login-card">
-            <h1>RoseNet Admin</h1>
-            <p>Authorization Required</p>
+            <h1>Admin Login</h1>
+            <p>Welcome to the WiFi Admin dashboard.</p>
             <form id="loginForm">
                 <div class="input-group">
-                    <label for="password">Network Signature</label>
-                    <input type="password" id="password" class="input-field" placeholder="••••••••" required>
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="input-field" required>
                 </div>
-                <button type="submit" class="btn-submit">Initialize Command</button>
+                <button type="submit" class="btn-submit">Login</button>
                 <p id="loginError"></p>
             </form>
         </div>
@@ -595,39 +574,49 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo-icon"><i data-feather="zap"></i></div>
-                <h1>RoseNet</h1>
+                <div class="logo-icon"><i data-feather="wifi"></i></div>
+                <h1>WiFi Admin</h1>
             </div>
             <ul class="nav-menu">
                 <li class="nav-item">
                     <a href="#dashboard" class="nav-link active" data-view="dashboard">
-                        <i data-feather="terminal"></i> <span>Console</span>
+                        <i data-feather="home"></i> <span>Dashboard</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="#vouchers" class="nav-link" data-view="vouchers">
-                        <i data-feather="key"></i> <span>Ledger</span>
+                        <i data-feather="credit-card"></i> <span>Voucher Management</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="#sessions" class="nav-link" data-view="sessions">
-                        <i data-feather="activity"></i> <span>Active Nodes</span>
+                        <i data-feather="users"></i> <span>Active Sessions</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="#zones" class="nav-link" data-view="zones">
-                        <i data-feather="layers"></i> <span>Network Zones</span>
+                        <i data-feather="map-pin"></i> <span>Hotspot Zones</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#logs" class="nav-link" data-view="logs">
+                        <i data-feather="file-text"></i> <span>User Logs</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#reports" class="nav-link" data-view="reports">
+                        <i data-feather="bar-chart-2"></i> <span>Revenue Reports</span>
                     </a>
                 </li>
             </ul>
             <div class="sidebar-footer">
                 <div class="system-status-card">
-                    <h4>Node Status</h4>
-                    <div class="status-indicator">Online</div>
+                    <h4>System Status</h4>
+                    <div class="status-indicator">Server Online</div>
                 </div>
                 <div class="sidebar-actions">
                     <div class="action-icon" id="settingsButton"><i data-feather="settings"></i></div>
-                    <div class="action-icon" id="logoutButton"><i data-feather="power"></i></div>
+                    <div class="action-icon" id="logoutButton"><i data-feather="log-out"></i></div>
                 </div>
             </div>
         </aside>
@@ -637,7 +626,7 @@
             <header class="main-header">
                 <div class="search-bar">
                     <i data-feather="search"></i>
-                    <input type="text" placeholder="Scan ledger for signatures...">
+                    <input type="text" placeholder="Search vouchers, users...">
                 </div>
                 <div class="header-actions">
                     <div class="notification-bell">
@@ -650,62 +639,62 @@
 
             <!-- Dashboard View -->
             <div id="dashboard" class="content-view active">
-                <div class="grid grid-4-cols" style="margin-bottom: 2rem;">
+                <div class="grid grid-4-cols" style="margin-bottom: 1.5rem;">
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Total Value</div>
+                                <div class="card-header">Total Revenue</div>
                                 <div class="card-value" id="total-revenue">$0</div>
                             </div>
-                            <div class="card-icon"><i data-feather="database"></i></div>
+                            <div class="card-icon"><i data-feather="dollar-sign"></i></div>
                         </div>
                         <div class="card-trend" id="revenue-trend">+0%</div>
                     </div>
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Valid Signatures</div>
+                                <div class="card-header">Active Vouchers</div>
                                 <div class="card-value" id="active-vouchers">0</div>
                             </div>
-                             <div class="card-icon"><i data-feather="shield-check"></i></div>
+                             <div class="card-icon"><i data-feather="check-circle"></i></div>
                         </div>
                     </div>
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Network Throughput</div>
+                                <div class="card-header">Total Data Consumed</div>
                                 <div class="card-value" id="data-consumed">0 GB</div>
                             </div>
-                            <div class="card-icon"><i data-feather="cpu"></i></div>
+                            <div class="card-icon"><i data-feather="bar-chart"></i></div>
                         </div>
                     </div>
                     <div class="card">
                         <div class="metric-card-header">
                             <div>
-                                <div class="card-header">Active Peers</div>
+                                <div class="card-header">Live Online Users</div>
                                 <div class="card-value" id="live-users">0</div>
                             </div>
-                            <div class="card-icon"><i data-feather="users"></i></div>
+                            <div class="card-icon"><i data-feather="user"></i></div>
                         </div>
                     </div>
                 </div>
-                <div class="grid grid-3-cols" style="margin-bottom: 2rem;">
+                <div class="grid grid-3-cols" style="margin-bottom: 1.5rem;">
                     <div class="card">
-                        <h3 class="card-title"><i data-feather="trending-up" style="color:var(--bitcoin-orange)"></i> Value Accrual</h3>
+                        <h3 class="card-title">Voucher Sales Statistics</h3>
                         <canvas id="voucherSalesChart"></canvas>
                     </div>
                     <div class="card">
-                        <h3 class="card-title"><i data-feather="pie-chart" style="color:var(--digital-gold)"></i> Asset Status</h3>
+                        <h3 class="card-title">Voucher Status</h3>
                         <canvas id="voucherStatusChart"></canvas>
                     </div>
                 </div>
                 <div class="grid grid-2-cols">
                     <div class="card">
-                        <h3 class="card-title"><i data-feather="star" style="color:var(--bitcoin-orange)"></i> Premium Plans</h3>
+                        <h3 class="card-title">Top Selling Plans</h3>
                         <ul id="top-plans-list"></ul>
                     </div>
                     <div class="card">
-                        <h3 class="card-title"><i data-feather="map" style="color:var(--stardust)"></i> Regional Traffic</h3>
+                        <h3 class="card-title">Traffic by Zone</h3>
                         <canvas id="trafficByZoneChart"></canvas>
                     </div>
                 </div>
@@ -713,19 +702,19 @@
 
             <!-- Voucher Management View -->
             <div id="vouchers" class="content-view">
-                <div class="card" style="margin-bottom: 2rem;">
-                    <h3 class="card-title"><i data-feather="plus-circle" style="color:var(--bitcoin-orange)"></i> Mint New Signature</h3>
-                    <form id="addVoucherForm" class="grid grid-4-cols" style="gap: 1.5rem;">
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title">Add New Voucher</h3>
+                    <form id="addVoucherForm" class="form-grid">
                         <div class="input-group">
-                            <label>Plan Label</label>
-                            <input type="text" id="voucherName" class="input-field" placeholder="e.g. 24H_ORBIT">
+                            <label for="voucherName">Voucher Name (e.g., 1 Day Pass)</label>
+                            <input type="text" id="voucherName" class="input-field" placeholder="Voucher Name">
                         </div>
                         <div class="input-group">
-                            <label>Duration</label>
-                            <input type="number" id="duration" class="input-field" placeholder="Value">
+                            <label for="duration">Duration</label>
+                            <input type="number" id="duration" class="input-field" placeholder="e.g., 1">
                         </div>
                         <div class="input-group">
-                            <label>Interval</label>
+                            <label for="durationUnit">Unit</label>
                             <select id="durationUnit" class="input-field">
                                 <option value="minutes">Minutes</option>
                                 <option value="days" selected>Days</option>
@@ -733,36 +722,36 @@
                             </select>
                         </div>
                          <div class="input-group">
-                            <label>Value ($)</label>
-                            <input type="number" id="price" class="input-field" placeholder="0.00">
+                            <label for="price">Price (<span class="currency-symbol">$</span>)</label>
+                            <input type="number" id="price" class="input-field" placeholder="e.g., 5.00">
                         </div>
                         <div class="input-group">
-                            <label>Custom Hash (Optional)</label>
-                            <input type="text" id="code" class="input-field" placeholder="Auto-gen if blank">
+                            <label for="code">Custom Code (optional)</label>
+                            <input type="text" id="code" class="input-field" placeholder="Leave blank for random">
                         </div>
-                        <div style="grid-column: span 3; display: flex; align-items: center; gap: 2rem;">
-                            <button type="submit" class="btn-primary" style="width: auto; padding: 0.875rem 3rem;">Mint Signature</button>
-                             <div style="display: flex; align-items: center; cursor: pointer;">
-                                <input type="checkbox" id="isReusable" style="width: 1.25rem; height: 1.25rem; accent-color: var(--bitcoin-orange); margin-right: 0.75rem;">
-                                <label for="isReusable" style="color: var(--stardust); font-family: var(--font-technical); font-size: 0.75rem; text-transform: uppercase;">Persistent Session</label>
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem;">
+                            <button type="submit" class="btn-primary" style="width: auto; padding: 0.75rem 2rem;">Add Voucher</button>
+                             <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="isReusable" style="width: 1.1rem; height: 1.1rem; accent-color: var(--bitcoin-orange); margin-right: 0.5rem;">
+                                <label for="isReusable" style="color:var(--stardust); font-size: 0.9rem;">Reusable</label>
                             </div>
                         </div>
                     </form>
                 </div>
 
                 <div class="card">
-                    <h3 class="card-title"><i data-feather="list" style="color:var(--stardust)"></i> Signature Ledger</h3>
+                    <h3 class="card-title">Existing Vouchers</h3>
                     <div class="table-wrapper">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Label</th>
-                                    <th>Hash</th>
-                                    <th>Limit</th>
-                                    <th>Value</th>
-                                    <th>State</th>
-                                    <th>Peer MAC</th>
-                                    <th>Op</th>
+                                    <th>Name</th>
+                                    <th>Code</th>
+                                    <th>Duration</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                    <th>Used By</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="voucherList"></tbody>
@@ -771,31 +760,45 @@
                 </div>
             </div>
 
-             <!-- Settings View -->
+            <!-- Settings View -->
             <div id="settings" class="content-view">
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title">General Settings</h3>
+                    <form id="generalSettingsForm" style="max-width: 440px;">
+                        <div class="input-group">
+                            <label for="currencySymbol">Currency Symbol</label>
+                            <input type="text" id="currencySymbol" class="input-field" placeholder="e.g., $, €, £">
+                        </div>
+                        <button type="submit" class="btn-primary">Save Settings</button>
+                        <p id="settingsMessage" style="margin-top: 1.5rem;"></p>
+                    </form>
+                </div>
+
                 <div class="card">
-                    <h3 class="card-title"><i data-feather="shield" style="color:var(--bitcoin-orange)"></i> Update Command Hash</h3>
+                    <h3 class="card-title">Change Admin Password</h3>
                     <form id="changePasswordForm" style="max-width: 440px;">
                         <div class="input-group">
-                            <label>Current Key</label>
+                            <label for="oldPassword">Current Password</label>
                             <input type="password" id="oldPassword" class="input-field" required>
                         </div>
                          <div class="input-group">
-                            <label>New Network Key</label>
+                            <label for="newPassword">New Password</label>
                             <input type="password" id="newPassword" class="input-field" required>
                         </div>
                          <div class="input-group">
-                            <label>Confirm Key</label>
+                            <label for="confirmNewPassword">Confirm New Password</label>
                             <input type="password" id="confirmNewPassword" class="input-field" required>
                         </div>
-                        <button type="submit" class="btn-primary">Update Signature</button>
-                        <p id="passwordChangeMessage" style="margin-top: 1.5rem; font-family: var(--font-technical); font-size: 0.85rem;"></p>
+                        <button type="submit" class="btn-primary">Change Password</button>
+                        <p id="passwordChangeMessage" style="margin-top: 1.5rem;"></p>
                     </form>
                 </div>
             </div>
             
-            <div id="sessions" class="content-view"><div class="card"><h3 class="card-title">Live Peer Network (Syncing...)</h3></div></div>
-            <div id="zones" class="content-view"><div class="card"><h3 class="card-title">Network Topology (Syncing...)</h3></div></div>
+            <div id="sessions" class="content-view"><div class="card"><h3 class="card-title">Active Sessions (Coming Soon)</h3></div></div>
+            <div id="zones" class="content-view"><div class="card"><h3 class="card-title">Hotspot Zones (Coming Soon)</h3></div></div>
+            <div id="logs" class="content-view"><div class="card"><h3 class="card-title">User Logs (Coming Soon)</h3></div></div>
+            <div id="reports" class="content-view"><div class="card"><h3 class="card-title">Revenue Reports (Coming Soon)</h3></div></div>
 
         </main>
     </div>
