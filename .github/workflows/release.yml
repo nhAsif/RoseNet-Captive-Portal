@@ -62,9 +62,9 @@ jobs:
         cp LICENSE "${RELEASE_NAME}/"
         cp -r scripts "${RELEASE_NAME}/"
         
-        ARCHIVE_NAME="${RELEASE_NAME}.tar.gz"
-        tar -czvf "${ARCHIVE_NAME}" "${RELEASE_NAME}"
-        
+        ARCHIVE_NAME="${RELEASE_NAME}.zip"
+        zip -r "${ARCHIVE_NAME}" "${RELEASE_NAME}"
+
         # Generate SHA256 checksum
         sha256sum "${ARCHIVE_NAME}" > "${ARCHIVE_NAME}.sha256"
         

@@ -184,7 +184,7 @@
         btn.textContent = 'Activated';
         
         setTimeout(() => {
-          window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+          window.location.href = `http://${window.location.hostname}:2050/nodogsplash_auth/?tok=${token}`;
         }, 1200);
       } catch (error) {
         errorMessage.textContent = `Error: ${error.message}`;
@@ -201,7 +201,7 @@
         try {
           const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
           if (resp.ok) {
-            window.location.href = `http://192.168.100.1:2050/nodogsplash_auth/?tok=${token}`;
+            window.location.href = `http://${window.location.hostname}:2050/nodogsplash_auth/?tok=${token}`;
           }
         } catch (e) {}
       }

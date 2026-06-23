@@ -58,7 +58,7 @@ The integration with NoDogSplash is fundamental to the captive portal functional
 
 1.  A user connects to the Wi-Fi network.
 2.  NoDogSplash intercepts the user's initial HTTP request and redirects them to its `splash.html` page (`/etc/nodogsplash/htdocs/splash.html`).
-3.  This `splash.html` contains a meta-refresh that immediately redirects the user to the RoseNet Access Portal's Go-powered voucher page (e.g., `http://192.168.100.1:7891`), forwarding essential parameters like `ip`, `mac`, and `token`.
+3.  This `splash.html` contains a meta-refresh that immediately redirects the user to the RoseNet Access Portal's Go-powered voucher page (e.g., `http://<router-lan-ip>:7891`), forwarding essential parameters like `ip`, `mac`, and `token`. The router's LAN IP is detected automatically during installation, so the portal works on any subnet without manual edits.
 4.  The user enters a valid voucher code on the portal page.
 5.  The frontend JavaScript validates the voucher and stages the session via `/binauth-stage`.
 6.  Upon successful validation, the user is redirected to the NoDogSplash authentication URL.
@@ -67,74 +67,92 @@ The integration with NoDogSplash is fundamental to the captive portal functional
 
 ## Installation & Deployment
 
-RoseNet Access Portal can be deployed on your OpenWrt router either by building from source or by using pre-compiled binaries from GitHub Releases.
+RoseNet Access Portal can be deployed on your OpenWrt router either by using a pre-compiled binary release (recommended) or by building from source. Everything is installed directly on the router — no separate Go toolchain or local machine staging is required.
 
-### Method 1: Building from Source
+### Method 1: Using a Pre-compiled Release (Recommended)
 
-Follow these steps to build the server binary and deploy it on your OpenWrt router:
+This is the easiest method. You do everything over SSH on the router itself.
 
-1.  **Build the Server Binary**:
-    On a Windows machine, execute the `build.bat` script. This will cross-compile the Go application for OpenWrt and generate the `voucher_server` binary in the project root directory.
+1.  **SSH into your router**:
 
-    ```bash
-    build.bat
+    ```sh
+    ssh root@<router-lan-ip>
     ```
 
-2.  **Copy the Release Directory to the Router**:
-    Transfer the entire project directory (including `voucher_server`, `frontend`, and `scripts`) to your OpenWrt router. You can use `scp` or a similar tool.
+2.  **Check your router's architecture**:
+    Releases are published per architecture. Identify yours with:
 
-    ```bash
-    # Example using scp from your project root
-    scp -r RoseNet-Captive-Portal root@your_router_ip:/root/
+    ```sh
+    opkg print-architecture
+    # or, alternatively:
+    uname -m
     ```
 
-3.  **Run Installation Script on Router**:
-    SSH into your OpenWrt router, navigate to the project directory, and execute the installation script:
+    Map the result to the correct release archive:
 
-    ```bash
-    ssh root@your_router_ip
-    cd /root/RoseNet-Captive-Portal
-    ./scripts/install.sh
+    | `uname -m` / arch        | Release archive                    |
+    | ------------------------ | ---------------------------------- |
+    | `aarch64` / `arm64`      | `RoseNet-Portal-linux-arm64.zip`   |
+    | `armv7l`, `armv6l` / arm | `RoseNet-Portal-linux-arm.zip`     |
+    | `mips`, `mipsel`         | `RoseNet-Portal-linux-mipsle.zip`  |
+    | `x86_64`                 | `RoseNet-Portal-linux-amd64.zip`   |
+
+3.  **Download the latest release** with `wget` (replace the filename with the one for your architecture):
+
+    ```sh
+    wget https://github.com/nhAsif/RoseNet-Access-Portal/releases/latest/download/RoseNet-Portal-linux-arm64.zip
+    ```
+
+4.  **Unzip the archive**:
+    If `unzip` is not installed, install it first with `opkg update && opkg install unzip`.
+
+    ```sh
+    unzip RoseNet-Portal-linux-arm64.zip
+    cd RoseNet-Portal-linux-arm64
+    ```
+
+5.  **Run the installation script**:
+
+    ```sh
+    chmod +x scripts/install.sh
+    sh scripts/install.sh
     ```
 
     The `install.sh` script automates the following:
-    *   Creates necessary directories (`/opt/voucher`, `/www/voucher`, `/data`).
-    *   Copies application files to their final destinations.
+    *   Installs NoDogSplash automatically via `opkg` if it is not already present.
+    *   Detects the router's LAN IP automatically (from `network.lan.ipaddr`, falling back to the `br-lan` interface address). To override detection, run the script with an explicit IP: `LAN_IP=192.168.1.1 sh scripts/install.sh`.
+    *   Creates necessary directories (`/opt/voucher`, `/www/voucher`, `/data`) and copies application files to their final destinations.
     *   Sets up an `init.d` service to ensure the voucher server starts on boot.
-    *   Configures NoDogSplash with the correct authentication service and rules.
-    *   Creates the custom `splash.html` redirect page for NoDogSplash.
+    *   Configures NoDogSplash with the correct authentication service and rules, and generates the custom `splash.html` redirect page.
     *   Restarts relevant services to apply changes.
 
-### Method 2: Using Pre-compiled Release Binaries
+### Method 2: Building from Source
 
-This method is recommended for users who do not wish to set up a Go development environment.
+For developers who want to build the binary themselves.
 
-1.  **Download the Release Archive**:
-    Go to the [GitHub Releases page](https://github.com/nhAsif/RoseNet-Access-Portal/releases)
-    Download the appropriate release archive (e.g., `RoseNet-Portal-linux-arm.zip` or `RoseNet-Portal-linux-arm64.zip`) for your router's architecture.
+1.  **Build the Server Binary**:
+    On Windows, run `build.bat`; on Linux/macOS, run `scripts/build.sh`. Adjust `GOARCH` to match your router (`arm64`, `arm`, `mipsle`, `amd64`). This cross-compiles the Go application and produces the `voucher_server` binary in the project root.
 
-2.  **Extract and Copy the Directory to Router**:
-    Extract the contents of the downloaded archive on your local machine. It will contain `voucher_server`, the `frontend` directory, and the `scripts` directory.
-    Transfer the entire extracted directory to your OpenWrt router:
-
-    ```bash
-    # Example using scp from your extracted directory
-    scp -r RoseNet-Portal-linux-arm root@your_router_ip:/root/
+    ```sh
+    ./scripts/build.sh
     ```
 
-3.  **Run Installation Script on Router**:
-    SSH into your OpenWrt router, navigate to the extracted directory, and execute the installation script:
+2.  **Copy the project to the router** (including `voucher_server`, `frontend/`, and `scripts/`):
 
-    ```bash
-    ssh root@your_router_ip
-    cd /root/RoseNet-Portal-linux-arm
-    ./scripts/install.sh
+    ```sh
+    scp -r RoseNet-Captive-Portal root@<router-lan-ip>:/root/
     ```
 
-    The `install.sh` script will perform the same setup steps as described in Method 1.
+3.  **Run the installation script on the router**:
 
-**Note:**
-The install script will automatically copy all required files from the extracted directory to their correct locations on the router. There is no need to manually move files to `/tmp/`.
+    ```sh
+    ssh root@<router-lan-ip>
+    cd /root/RoseNet-Captive-Portal
+    chmod +x scripts/install.sh
+    sh scripts/install.sh
+    ```
+
+    This performs the same setup steps as described in Method 1.
 
 ## Usage
 
@@ -144,7 +162,7 @@ Users connecting to your Wi-Fi network will be redirected to the voucher entry p
 
 ### Administrator Panel
 
-Access the administrator panel via `admin.html` (e.g., `http://your_router_ip:7891/admin.html`).
+Access the administrator panel via `admin.html` (e.g., `http://<router-lan-ip>:7891/admin.html`). The installation script prints the exact URL with your router's detected IP when it finishes.
 *   **Default Password**: `rosepinepink`
 *   **Features**:
     *   Secure login and password management.
@@ -157,6 +175,7 @@ Access the administrator panel via `admin.html` (e.g., `http://your_router_ip:78
 
 *   **Default Admin Password**: The default administrator password is `rosepinepink`.
 *   **Server Port**: The Go backend listens on port `7891` by default.
+*   **LAN IP**: Detected automatically at install time and wired into the captive-portal redirects, so no IP is hardcoded. The frontend resolves the router address from the browser's location, and `splash.html` uses the IP detected by `install.sh` (override with `LAN_IP=<ip> ./scripts/install.sh`).
 *   **Persistence**: Data is stored in `/data/` as JSON files. This ensures portability and easy backups without needing database drivers.
 
 ## API Endpoints

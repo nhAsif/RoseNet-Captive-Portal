@@ -10,6 +10,23 @@ RELEASE_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo "Setting up voucher system..."
 
+# 0. Detect the router's LAN IP automatically (used for portal redirects)
+echo "Detecting LAN IP address..."
+# Honor an explicit LAN_IP override from the environment; otherwise auto-detect.
+if [ -z "$LAN_IP" ]; then
+    LAN_IP="$(uci -q get network.lan.ipaddr)"
+fi
+if [ -z "$LAN_IP" ]; then
+    # Fallback: read the IPv4 address of the gateway interface (br-lan)
+    LAN_IP="$(ip -4 addr show br-lan 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n1)"
+fi
+if [ -z "$LAN_IP" ]; then
+    echo "Error: could not detect LAN IP address automatically."
+    echo "Set it manually with: LAN_IP=<router-ip> ./scripts/install.sh"
+    exit 1
+fi
+echo "Using LAN IP: $LAN_IP"
+
 # 1. Create directories
 echo "Creating directories..."
 mkdir -p /www/voucher
@@ -67,13 +84,18 @@ chmod +x /etc/init.d/voucher
 /etc/init.d/voucher enable
 /etc/init.d/voucher start
 
-# 5. Configure NoDogSplash
+# 5. Install and configure NoDogSplash
 echo "Configuring NoDogSplash..."
 
+# Install NoDogSplash automatically if it is not already present.
 if [ ! -f /etc/init.d/nodogsplash ]; then
-    echo "Error: NoDogSplash service not found at /etc/init.d/nodogsplash."
-    echo "Please install NoDogSplash first by running: opkg update &amp;&amp; opkg install nodogsplash"
-    exit 1
+    echo "NoDogSplash not found. Installing it via opkg..."
+    opkg update
+    if ! opkg install nodogsplash; then
+        echo "Error: failed to install NoDogSplash via opkg."
+        echo "Check your internet connection and that the opkg feeds are reachable, then re-run this script."
+        exit 1
+    fi
 fi
 
 # Backup existing config
@@ -120,13 +142,15 @@ EOF
 # 6. Create the custom splash page for redirection
 echo "Creating custom NoDogSplash splash page..."
 mkdir -p /etc/nodogsplash/htdocs/
-cat << 'EOF' > /etc/nodogsplash/htdocs/splash.html
+# Note: unquoted heredoc so ${LAN_IP} expands, while NoDogSplash's own
+# $clientip/$clientmac/$tok variables are escaped to stay literal in the output.
+cat << EOF > /etc/nodogsplash/htdocs/splash.html
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8" />
     <title>Connecting...</title>
-    <meta http-equiv="refresh" content="0; url=http://192.168.100.1:7891/?ip=$clientip&amp;mac=$clientmac&amp;token=$tok" />
+    <meta http-equiv="refresh" content="0; url=http://${LAN_IP}:7891/?ip=\$clientip&amp;mac=\$clientmac&amp;token=\$tok" />
 </head>
 <body>
     <p>Please wait, you are being redirected to the login page...</p>
@@ -140,4 +164,4 @@ echo "Restarting NoDogSplash..."
 
 echo "Installation complete!"
 echo "Your voucher server should be running and integrated with NoDogSplash."
-echo "You can access the admin panel at http://192.168.100.1:7891/admin.html"
+echo "You can access the admin panel at http://${LAN_IP}:7891/admin.html"
