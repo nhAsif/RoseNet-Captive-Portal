@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -68,6 +70,11 @@ func main() {
 	}
 
 	restageActiveUsers()
+
+	// Restore active sessions into NoDogSplash after a reboot so reconnecting
+	// devices skip the splash entirely. Runs in the background because it polls
+	// for devices to come back online over a few minutes.
+	go reauthSessionsViaNDS()
 
 	// Setup routes
 	http.HandleFunc("/binauth-stage", binauthStageHandler)
@@ -479,27 +486,108 @@ func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Not authorized", http.StatusUnauthorized)
 }
 
-func restageActiveUsers() {
+// activeSession is a still-valid voucher session keyed by client MAC.
+type activeSession struct {
+	MAC    string
+	Expiry time.Time
+}
+
+// getActiveSessions scans the vouchers for used, time-limited sessions that have
+// not yet expired and returns one entry per MAC with its absolute expiry time.
+func getActiveSessions() []activeSession {
 	vouchers, err := getVouchers()
 	if err != nil {
-		log.Printf("[restageActiveUsers] Failed to get vouchers: %v", err)
-		return
+		log.Printf("[getActiveSessions] Failed to get vouchers: %v", err)
+		return nil
 	}
 	now := time.Now()
-	count := 0
+	sessions := make([]activeSession, 0)
 	for _, v := range vouchers {
 		if v.IsUsed && v.UserMAC != "" && v.Duration > 0 && !v.StartTime.IsZero() {
 			expiry := v.StartTime.Add(time.Duration(v.Duration) * time.Minute)
 			if now.Before(expiry) {
-				remaining := int(expiry.Sub(now).Seconds())
-				if remaining > 0 {
-					stagedAuthsMutex.Lock()
-					stagedAuths[v.UserMAC] = remaining
-					stagedAuthsMutex.Unlock()
-					count++
-				}
+				sessions = append(sessions, activeSession{MAC: v.UserMAC, Expiry: expiry})
 			}
 		}
 	}
+	return sessions
+}
+
+func restageActiveUsers() {
+	now := time.Now()
+	count := 0
+	for _, s := range getActiveSessions() {
+		remaining := int(s.Expiry.Sub(now).Seconds())
+		if remaining > 0 {
+			stagedAuthsMutex.Lock()
+			stagedAuths[s.MAC] = remaining
+			stagedAuthsMutex.Unlock()
+			count++
+		}
+	}
 	log.Printf("[restageActiveUsers] Re-staged %d active users for NoDogSplash.", count)
+}
+
+// reauthSessionsViaNDS restores still-valid sessions into NoDogSplash after a
+// reboot. NDS keeps its authenticated-client table in volatile firewall state,
+// so a reboot wipes it and every device would otherwise be intercepted by the
+// splash page once. restageActiveUsers() only makes that re-auth voucher-free;
+// this proactively re-authenticates devices in NDS so no splash appears at all.
+//
+// A device can only be authenticated once NDS knows about it (i.e. after it has
+// reconnected and sent traffic). Right after boot most devices haven't
+// re-associated yet, so we retry on an interval, dropping each MAC as soon as
+// `ndsctl auth` succeeds, until every session is restored or the window closes.
+//
+// It no-ops in dev where `ndsctl` is not installed.
+func reauthSessionsViaNDS() {
+	ndsctl, err := exec.LookPath("ndsctl")
+	if err != nil {
+		return // not on the router / NoDogSplash not installed
+	}
+
+	// Collect the sessions to restore once; expiry is absolute so the granted
+	// duration shrinks correctly as we retry over the window.
+	pending := make(map[string]time.Time)
+	for _, s := range getActiveSessions() {
+		pending[s.MAC] = s.Expiry
+	}
+	if len(pending) == 0 {
+		return
+	}
+	log.Printf("[reauthSessionsViaNDS] Attempting to restore %d session(s) into NoDogSplash after boot.", len(pending))
+
+	const (
+		retryInterval = 15 * time.Second
+		window        = 3 * time.Minute
+	)
+	deadline := time.Now().Add(window)
+	for {
+		now := time.Now()
+		for mac, expiry := range pending {
+			remaining := int(expiry.Sub(now).Seconds())
+			if remaining <= 0 {
+				delete(pending, mac) // session expired while we were waiting
+				continue
+			}
+			// `ndsctl auth <mac> <seconds>` fails if the client isn't known to
+			// NDS yet; that's expected before the device reconnects, so we just
+			// retry on the next tick.
+			if out, err := exec.Command(ndsctl, "auth", mac, strconv.Itoa(remaining)).CombinedOutput(); err != nil {
+				log.Printf("[reauthSessionsViaNDS] %s not ready yet: %v (%s)", mac, err, string(out))
+			} else {
+				log.Printf("[reauthSessionsViaNDS] Restored %s in NDS for %ds.", mac, remaining)
+				delete(pending, mac)
+			}
+		}
+		if len(pending) == 0 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(retryInterval)
+	}
+	if len(pending) > 0 {
+		log.Printf("[reauthSessionsViaNDS] Gave up with %d session(s) still pending (devices offline); they will re-auth via the portal when they reconnect.", len(pending))
+	} else {
+		log.Printf("[reauthSessionsViaNDS] All sessions restored into NoDogSplash.")
+	}
 }
