@@ -9,8 +9,41 @@ on:
   workflow_dispatch:
 
 jobs:
+  frontend:
+    name: Build admin frontend
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: 'npm'
+        cache-dependency-path: frontend-admin/package-lock.json
+
+    # Source lives in frontend-admin/; the build emits static files into
+    # frontend/admin/ (git-ignored). Built once here and shared with every
+    # matrix arch below via an artifact so we don't rebuild it N times.
+    - name: Install and build admin frontend
+      run: |
+        cd frontend-admin
+        npm ci
+        npm run build
+      shell: bash
+
+    - name: Upload admin build
+      uses: actions/upload-artifact@v4
+      with:
+        name: admin-frontend
+        path: frontend/admin
+        if-no-files-found: error
+        retention-days: 1
+
   build:
     name: Build for ${{ matrix.os }}-${{ matrix.arch }}
+    needs: frontend
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,6 +58,14 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # Restore the compiled admin dashboard into frontend/admin/ so the release
+    # archive's `cp -r frontend` picks it up.
+    - name: Download admin frontend
+      uses: actions/download-artifact@v4
+      with:
+        name: admin-frontend
+        path: frontend/admin
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -53,7 +94,7 @@ jobs:
     - name: Create release archive and checksum
       run: |
         RELEASE_NAME="RoseNet-Portal-${{ matrix.os }}-${{ matrix.arch }}"
-        
+
         # Create a temporary directory to stage files
         mkdir -p "${RELEASE_NAME}"
         cp "voucher_server" "${RELEASE_NAME}/"
@@ -61,13 +102,13 @@ jobs:
         cp nodogsplash/nodogsplash.conf "${RELEASE_NAME}/"
         cp LICENSE "${RELEASE_NAME}/"
         cp -r scripts "${RELEASE_NAME}/"
-        
+
         ARCHIVE_NAME="${RELEASE_NAME}.zip"
         zip -r "${ARCHIVE_NAME}" "${RELEASE_NAME}"
 
         # Generate SHA256 checksum
         sha256sum "${ARCHIVE_NAME}" > "${ARCHIVE_NAME}.sha256"
-        
+
         rm -rf "${RELEASE_NAME}" # Clean up temporary directory
       shell: bash
 
@@ -91,6 +132,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: artifacts
+        pattern: linux-* # Only the per-arch release archives, not admin-frontend
 
     - name: List downloaded artifacts
       run: ls -R artifacts

@@ -166,4 +166,4 @@ echo "Restarting NoDogSplash..."
 
 echo "Installation complete!"
 echo "Your voucher server should be running and integrated with NoDogSplash."
-echo "You can access the admin panel at http://${LAN_IP}:7891/admin.html"
+echo "You can access the admin panel at http://${LAN_IP}:7891/admin/"

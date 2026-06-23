@@ -50,7 +50,7 @@ The RoseNet Access Portal operates entirely on the OpenWrt router, comprising th
 Designed for extreme lightness and performance, crucial for captive portal environments.
 
 *   **`index.html` (User Voucher Page)**: The themed entry page users encounter. Support for multiple visual styles including corporate, modern, and retro-music.
-*   **`admin.html` (Administrator Panel)**: A single-page application for comprehensive voucher management, system statistics, and theme configuration.
+*   **Administrator Panel (`/admin/`)**: A React 18 + Vite single-page application (source in `frontend-admin/`, compiled to `frontend/admin/`) for comprehensive voucher management, system statistics, and theme configuration. The legacy `/admin.html` URL redirects here.
 
 ### NoDogSplash Integration
 
@@ -137,6 +137,15 @@ For developers who want to build the binary themselves.
     ./scripts/build.sh
     ```
 
+    **Admin UI (required for source builds):** The admin dashboard is a React 18 + Vite app in `frontend-admin/`. Its compiled output (`frontend/admin/`) is **not committed** — you must build it before deploying from source so the panel is included in `frontend/`. Node.js is required on your dev machine only, never on the router. (Pre-compiled releases already include it, built automatically by CI.)
+
+    ```sh
+    cd frontend-admin
+    npm install
+    npm run build      # emits static files into ../frontend/admin
+    # dev loop: run the Go backend (cd backend && go run .), then `npm run dev`
+    ```
+
 2.  **Copy the project to the router** (including `voucher_server`, `frontend/`, and `scripts/`):
 
     ```sh
@@ -162,7 +171,7 @@ Users connecting to your Wi-Fi network will be redirected to the voucher entry p
 
 ### Administrator Panel
 
-Access the administrator panel via `admin.html` (e.g., `http://<router-lan-ip>:7891/admin.html`). The installation script prints the exact URL with your router's detected IP when it finishes.
+Access the administrator panel at `/admin/` (e.g., `http://<router-lan-ip>:7891/admin/`). The installation script prints the exact URL with your router's detected IP when it finishes. The old `/admin.html` link still works and redirects to `/admin/`.
 *   **Default Password**: `rosepinepink`
 *   **Features**:
     *   Secure login and password management.
