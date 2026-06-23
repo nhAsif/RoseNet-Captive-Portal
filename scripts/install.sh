@@ -20,6 +20,8 @@ if [ -z "$LAN_IP" ]; then
     # Fallback: read the IPv4 address of the gateway interface (br-lan)
     LAN_IP="$(ip -4 addr show br-lan 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n1)"
 fi
+# Strip any CIDR suffix (e.g. "192.168.100.1/24" -> "192.168.100.1").
+LAN_IP="${LAN_IP%%/*}"
 if [ -z "$LAN_IP" ]; then
     echo "Error: could not detect LAN IP address automatically."
     echo "Set it manually with: LAN_IP=<router-ip> ./scripts/install.sh"
