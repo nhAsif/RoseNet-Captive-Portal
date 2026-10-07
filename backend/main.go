@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -34,11 +36,75 @@ var frontendDir = "frontend"
 var stagedAuths = make(map[string]int)
 var stagedAuthsMutex = &sync.Mutex{}
 
+// fasKey must match the 'faskey' in /etc/config/opennds.
+// The installer writes the generated key to /opt/voucher/faskey; we read it at startup.
+var fasKey = "CHANGE_ME_TO_A_RANDOM_SHA256_HASH"
+
 func init() {
 	// Check if we are on the router (production) or local (dev)
 	if _, err := os.Stat("/www/voucher"); err == nil {
 		frontendDir = "/www/voucher"
 	}
+
+	// Read faskey from environment variable or the file written by the installer.
+	if key := os.Getenv("ROSENET_FASKEY"); key != "" {
+		fasKey = key
+	} else if data, err := os.ReadFile("/opt/voucher/faskey"); err == nil {
+		if k := strings.TrimSpace(string(data)); k != "" {
+			fasKey = k
+		}
+	}
+}
+
+// parseFASParams parses the OpenNDS FAS decoded string.
+// Format: "clientip=1.2.3.4, clientmac=aa:bb:cc:dd:ee:ff, ..."
+func parseFASParams(decoded string) map[string]string {
+	params := make(map[string]string)
+	for _, pair := range strings.Split(decoded, ", ") {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) == 2 {
+			params[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+	return params
+}
+
+// computeRHID computes the return hash ID: sha256(hid + faskey)
+func computeRHID(hid, key string) string {
+	h := sha256.New()
+	h.Write([]byte(hid + key))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func servePortalPage(w http.ResponseWriter, clientIP, clientMAC, authURL string) {
+	theme, err := getSetting("active_theme")
+	if err != nil || theme == "" {
+		theme = "default"
+	}
+
+	themePath := fmt.Sprintf("%s/themes/%s.html", frontendDir, theme)
+	if _, err := os.Stat(themePath); os.IsNotExist(err) {
+		themePath = fmt.Sprintf("%s/themes/default.html", frontendDir)
+	}
+
+	content, err := os.ReadFile(themePath)
+	if err != nil {
+		http.Error(w, "Portal unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	brand, _ := getSetting("brand_name")
+	if brand == "" {
+		brand = "RoseNet"
+	}
+
+	page := strings.ReplaceAll(string(content), "{{BRAND}}", html.EscapeString(brand))
+	page = strings.ReplaceAll(page, "{{CLIENT_IP}}", html.EscapeString(clientIP))
+	page = strings.ReplaceAll(page, "{{CLIENT_MAC}}", html.EscapeString(clientMAC))
+	page = strings.ReplaceAll(page, "{{AUTH_URL}}", html.EscapeString(authURL))
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(page))
 }
 
 func generateVoucherCode() (string, error) {
@@ -48,6 +114,56 @@ func generateVoucherCode() (string, error) {
 	}
 	return hex.EncodeToString(bytes), nil
 }
+
+// portalHandler is the FAS (Forward Authentication Service) endpoint for OpenNDS.
+// OpenNDS redirects captured clients here: GET /portal?fas=<base64_params>
+func portalHandler(w http.ResponseWriter, r *http.Request) {
+	fasB64 := r.URL.Query().Get("fas")
+	if fasB64 == "" {
+		// Not a FAS redirect — serve the root page as fallback
+		rootHandler(w, r)
+		return
+	}
+
+	// Decode the Base64 FAS payload (try standard then URL-safe encoding)
+	decoded, err := base64.StdEncoding.DecodeString(fasB64)
+	if err != nil {
+		decoded, err = base64.URLEncoding.DecodeString(fasB64)
+		if err != nil {
+			http.Error(w, "Invalid FAS parameters", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Parse comma-separated key=value pairs from the decoded payload
+	params := parseFASParams(string(decoded))
+
+	clientIP := params["clientip"]
+	clientMAC := params["clientmac"]
+	hid := params["hid"]
+	gatewayAddress := params["gatewayaddress"]
+	gatewayPort := params["gatewayport"]
+	authDir := params["authdir"]
+	originURL := params["originurl"]
+
+	if clientMAC == "" || hid == "" {
+		http.Error(w, "Missing client parameters", http.StatusBadRequest)
+		return
+	}
+
+	// Compute the return hash: rhid = sha256(hid + faskey)
+	rhid := computeRHID(hid, fasKey)
+
+	// Build the auth URL that the frontend will redirect to after voucher validation
+	authURL := fmt.Sprintf("http://%s:%s/%s/?tok=%s&redir=%s",
+		gatewayAddress, gatewayPort, authDir, rhid, originURL)
+
+	log.Printf("[portalHandler] FAS request from MAC=%s IP=%s", clientMAC, clientIP)
+
+	// Serve the themed portal page with client info and auth URL injected
+	servePortalPage(w, clientIP, clientMAC, authURL)
+}
+
 
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -82,14 +198,18 @@ func main() {
 		log.Fatalf("Failed to initialize admin password: %v", err)
 	}
 
-	restageActiveUsers()
-
-	// Restore active sessions into NoDogSplash after a reboot so reconnecting
-	// devices skip the splash entirely. Runs in the background because it polls
-	// for devices to come back online over a few minutes.
-	go reauthSessionsViaNDS()
+	// NOTE (OpenNDS migration): restageActiveUsers and reauthSessionsViaNDS are kept
+	// below but commented out. OpenNDS's built-in auth_restore (via binauth_log.sh)
+	// handles session persistence across reboots automatically — no goroutine needed.
+	// Uncomment if rolling back to NoDogSplash.
+	// restageActiveUsers()
+	// go reauthSessionsViaNDS()
 
 	// Setup routes
+
+	// OpenNDS FAS portal endpoint — clients are redirected here by OpenNDS
+	http.HandleFunc("/portal", portalHandler)
+
 	http.HandleFunc("/binauth-stage", binauthStageHandler)
 	http.HandleFunc("/binauth-check", binauthCheckHandler)
 	http.HandleFunc("/auth", authHandler)
@@ -478,9 +598,10 @@ func binauthStageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	durationInSeconds := voucher.Duration * 60
+	// OpenNDS custombinauth.sh expects duration in minutes; store minutes directly.
+	durationMinutes := voucher.Duration
 	stagedAuthsMutex.Lock()
-	stagedAuths[clientMAC] = durationInSeconds
+	stagedAuths[clientMAC] = durationMinutes
 	stagedAuthsMutex.Unlock()
 
 	time.AfterFunc(30*time.Second, func() {
@@ -507,11 +628,14 @@ func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	stagedAuthsMutex.Unlock()
 
 	if ok {
+		// duration is already in minutes (stored by binauthStageHandler)
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintf(w, "%d", duration)
 		return
 	}
 
+	// Fallback: check for an existing active session and return remaining minutes.
+	// This is used by OpenNDS auth_restore to re-authenticate returning clients.
 	vouchers, err := getVouchers()
 	if err == nil {
 		now := time.Now()
@@ -519,12 +643,14 @@ func binauthCheckHandler(w http.ResponseWriter, r *http.Request) {
 			if v.UserMAC == clientMAC && v.IsUsed && v.Duration > 0 && !v.StartTime.IsZero() {
 				expiry := v.StartTime.Add(time.Duration(v.Duration) * time.Minute)
 				if now.Before(expiry) {
-					remaining := int(expiry.Sub(now).Seconds())
-					if remaining > 0 {
-						w.Header().Set("Content-Type", "text/plain")
-						fmt.Fprintf(w, "%d", remaining)
-						return
+					// Convert seconds to minutes for OpenNDS (round up to avoid 0)
+					remainingMinutes := int(expiry.Sub(now).Minutes())
+					if remainingMinutes < 1 {
+						remainingMinutes = 1
 					}
+					w.Header().Set("Content-Type", "text/plain")
+					fmt.Fprintf(w, "%d", remainingMinutes)
+					return
 				}
 			}
 		}
