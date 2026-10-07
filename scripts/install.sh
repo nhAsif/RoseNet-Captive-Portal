@@ -130,6 +130,7 @@ config opennds
   option debuglevel '1'
   option gatewayinterface 'br-lan'
   option gatewayname 'RoseNet'
+  option gatewayfqdn 'disable'
   option maxclients '250'
 
   # FAS mode — redirect captured clients to local Go backend
