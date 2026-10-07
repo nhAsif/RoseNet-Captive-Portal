@@ -330,6 +330,11 @@
   </footer>
 
   <script>
+    // Client info injected server-side by Go backend via FAS
+    const clientIP = '{{CLIENT_IP}}';
+    const clientMAC = '{{CLIENT_MAC}}';
+    const authURL = '{{AUTH_URL}}';
+
     document.getElementById('voucherForm').addEventListener('submit', async function(event) {
       event.preventDefault();
       const voucherCode = document.getElementById('voucherCode').value.trim();
@@ -342,12 +347,7 @@
       btn.disabled = true;
       btn.textContent = 'Connecting...';
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const clientIP = urlParams.get('ip');
-      const clientMAC = urlParams.get('mac');
-      const token = urlParams.get('token');
-
-      if (!clientIP || !clientMAC || !token) {
+      if (!clientIP || !clientMAC || !authURL) {
         errorMessage.textContent = 'Required information is missing. Please reconnect to WiFi.';
         btn.disabled = false;
         btn.textContent = 'Connect';
@@ -360,9 +360,10 @@
         
         successMessage.textContent = `Success! Access for ${data.duration} minutes. Redirecting...`;
         btn.textContent = 'Connected';
-        
+
+        // Redirect to OpenNDS auth endpoint (pre-computed with rhid)
         setTimeout(() => {
-          window.location.href = `http://${window.location.hostname}:2050/nodogsplash_auth/?tok=${token}`;
+          window.location.href = authURL;
         }, 1200);
       } catch (error) {
         errorMessage.textContent = `Error: ${error.message}`;
@@ -371,16 +372,14 @@
       }
     });
 
-    // Auto-check for existing sessions
+    // Auto-check for existing sessions (re-auth without voucher entry)
     (async function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const clientMAC = urlParams.get('mac');
-      const token = urlParams.get('token');
-      if (clientMAC && token) {
+      if (clientMAC && authURL) {
         try {
           const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
           if (resp.ok) {
-            window.location.href = `http://${window.location.hostname}:2050/nodogsplash_auth/?tok=${token}`;
+            // Already has active session — redirect straight through
+            window.location.href = authURL;
           }
         } catch (e) {}
       }

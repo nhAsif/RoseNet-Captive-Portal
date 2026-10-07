@@ -306,6 +306,11 @@ btn.addEventListener('click',()=>{
 });
 
 /* 🚀 AUTH LOGIC */
+// Client info injected server-side by Go backend via FAS
+const clientIP = '{{CLIENT_IP}}';
+const clientMAC = '{{CLIENT_MAC}}';
+const authURL = '{{AUTH_URL}}';
+
 document.getElementById('voucherForm').addEventListener('submit', async function(event) {
   event.preventDefault();
   const voucherCode = document.getElementById('voucherCode').value.trim();
@@ -318,12 +323,7 @@ document.getElementById('voucherForm').addEventListener('submit', async function
   submitBtn.disabled = true;
   submitBtn.textContent = 'কানেক্ট হচ্ছে...';
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const clientIP = urlParams.get('ip');
-  const clientMAC = urlParams.get('mac');
-  const token = urlParams.get('token');
-
-  if (!clientIP || !clientMAC || !token) {
+  if (!clientIP || !clientMAC || !authURL) {
     errorMessage.textContent = 'Error: Missing IP/MAC/Token. Please reconnect to WiFi.';
     submitBtn.disabled = false;
     submitBtn.textContent = '>> লগইন করুন <<';
@@ -335,11 +335,12 @@ document.getElementById('voucherForm').addEventListener('submit', async function
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Unknown error');
     
-    successMessage.textContent = `Success! ${data.duration} মিনিটের জন্য ইন্টারনেট চালু হয়েছে।`;
+    successMessage.textContent = `Success! ${data.duration} মিনিটের জন্য ইন্টারনেট চালু হয়েছে।`;
     submitBtn.textContent = 'সংযুক্ত';
-    
+
+    // Redirect to OpenNDS auth endpoint (pre-computed with rhid)
     setTimeout(() => {
-      window.location.href = `http://${window.location.hostname}:2050/nodogsplash_auth/?tok=${token}`;
+      window.location.href = authURL;
     }, 1200);
   } catch (error) {
     errorMessage.textContent = `ত্রুটি: ${error.message}`;
@@ -348,16 +349,14 @@ document.getElementById('voucherForm').addEventListener('submit', async function
   }
 });
 
-// Auto-check for existing sessions
+// Auto-check for existing sessions (re-auth without voucher entry)
 (async function() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const clientMAC = urlParams.get('mac');
-  const token = urlParams.get('token');
-  if (clientMAC && token) {
+  if (clientMAC && authURL) {
     try {
       const resp = await fetch(`/binauth-check?mac=${clientMAC}`);
       if (resp.ok) {
-        window.location.href = `http://${window.location.hostname}:2050/nodogsplash_auth/?tok=${token}`;
+        // Already has active session — redirect straight through
+        window.location.href = authURL;
       }
     } catch (e) {}
   }
