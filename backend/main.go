@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -76,6 +77,43 @@ func computeRHID(hid, key string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+func lookupMACByIP(ip string) string {
+	if ip == "" {
+		return ""
+	}
+	data, err := os.ReadFile("/proc/net/arp")
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) >= 4 && fields[0] == ip {
+			mac := fields[3]
+			if mac != "00:00:00:00:00:00" {
+				return mac
+			}
+		}
+	}
+	return ""
+}
+
+func authClientViaNDS(mac string, mins int) {
+	if mac == "" || mins <= 0 {
+		return
+	}
+	ndsctl, err := exec.LookPath("ndsctl")
+	if err != nil {
+		ndsctl = "/usr/bin/ndsctl"
+	}
+	cmd := exec.Command(ndsctl, "auth", mac, strconv.Itoa(mins), "0", "0", "0", "0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("[authClientViaNDS] ndsctl auth %s %d mins failed: %v (%s)", mac, mins, err, strings.TrimSpace(string(out)))
+	} else {
+		log.Printf("[authClientViaNDS] ndsctl auth %s %d mins succeeded: %s", mac, mins, strings.TrimSpace(string(out)))
+	}
+}
+
 func servePortalPage(w http.ResponseWriter, clientIP, clientMAC, authURL string) {
 	theme, err := getSetting("active_theme")
 	if err != nil || theme == "" {
@@ -101,7 +139,7 @@ func servePortalPage(w http.ResponseWriter, clientIP, clientMAC, authURL string)
 	page := strings.ReplaceAll(string(content), "{{BRAND}}", html.EscapeString(brand))
 	page = strings.ReplaceAll(page, "{{CLIENT_IP}}", html.EscapeString(clientIP))
 	page = strings.ReplaceAll(page, "{{CLIENT_MAC}}", html.EscapeString(clientMAC))
-	page = strings.ReplaceAll(page, "{{AUTH_URL}}", html.EscapeString(authURL))
+	page = strings.ReplaceAll(page, "{{AUTH_URL}}", authURL)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(page))
@@ -154,11 +192,32 @@ func portalHandler(w http.ResponseWriter, r *http.Request) {
 	// Compute the return hash: rhid = sha256(hid + faskey)
 	rhid := computeRHID(hid, fasKey)
 
-	// Build the auth URL that the frontend will redirect to after voucher validation
-	authURL := fmt.Sprintf("http://%s:%s/%s/?tok=%s&redir=%s",
-		gatewayAddress, gatewayPort, authDir, rhid, originURL)
+	// Construct gateway host:port
+	gwHost := gatewayAddress
+	if gwHost == "" {
+		gwHost = "192.168.100.1:2050"
+	} else if !strings.Contains(gwHost, ":") {
+		if gatewayPort != "" {
+			gwHost = gwHost + ":" + gatewayPort
+		} else {
+			gwHost = gwHost + ":2050"
+		}
+	}
 
-	log.Printf("[portalHandler] FAS request from MAC=%s IP=%s", clientMAC, clientIP)
+	if authDir == "" {
+		authDir = "opennds_auth"
+	}
+
+	redirURL := originURL
+	if redirURL == "" {
+		redirURL = "http://connectivitycheck.gstatic.com/generate_204"
+	}
+
+	// Build the auth URL that the frontend will redirect to after voucher validation
+	authURL := fmt.Sprintf("http://%s/%s/?tok=%s&redir=%s",
+		gwHost, authDir, rhid, redirURL)
+
+	log.Printf("[portalHandler] FAS request MAC=%s IP=%s authURL=%s", clientMAC, clientIP, authURL)
 
 	// Serve the themed portal page with client info and auth URL injected
 	servePortalPage(w, clientIP, clientMAC, authURL)
@@ -262,7 +321,15 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil || brand == "" {
 		brand = "RoseNet"
 	}
+
+	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	clientMAC := lookupMACByIP(remoteIP)
+	authURL := "http://192.168.100.1:2050/opennds_auth/"
+
 	page := strings.ReplaceAll(string(content), "{{BRAND}}", html.EscapeString(brand))
+	page = strings.ReplaceAll(page, "{{CLIENT_IP}}", html.EscapeString(remoteIP))
+	page = strings.ReplaceAll(page, "{{CLIENT_MAC}}", html.EscapeString(clientMAC))
+	page = strings.ReplaceAll(page, "{{AUTH_URL}}", authURL)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(page))
@@ -321,6 +388,8 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Successfully authenticated voucher %s for MAC %s, providing %d minutes.", voucher.Code, clientMAC, voucher.Duration)
+
+	go authClientViaNDS(clientMAC, voucher.Duration)
 
 	response := map[string]interface{}{
 		"status":   "success",
@@ -603,6 +672,8 @@ func binauthStageHandler(w http.ResponseWriter, r *http.Request) {
 	stagedAuthsMutex.Lock()
 	stagedAuths[clientMAC] = durationMinutes
 	stagedAuthsMutex.Unlock()
+
+	go authClientViaNDS(clientMAC, durationMinutes)
 
 	time.AfterFunc(30*time.Second, func() {
 		stagedAuthsMutex.Lock()
