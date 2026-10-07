@@ -99,7 +99,7 @@ jobs:
         mkdir -p "${RELEASE_NAME}"
         cp "voucher_server" "${RELEASE_NAME}/"
         cp -r frontend "${RELEASE_NAME}/"
-        cp nodogsplash/nodogsplash.conf "${RELEASE_NAME}/"
+        cp opennds/opennds.conf "${RELEASE_NAME}/"
         cp LICENSE "${RELEASE_NAME}/"
         cp -r scripts "${RELEASE_NAME}/"
 
@@ -141,5 +141,6 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: artifacts/**/*
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

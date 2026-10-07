@@ -3,3 +3,6 @@ GEMINI.md
 # Generated admin dashboard build output (source in frontend-admin/).
 # Built by CI on release and by `npm run build` for source installs.
 frontend/admin/
+
+# Local build artifacts
+backend/backend

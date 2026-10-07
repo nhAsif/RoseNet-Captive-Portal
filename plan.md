@@ -214,9 +214,9 @@ config opennds
 
 ### 1.3 Tasks
 
-- [ ] Create `opennds/opennds.conf` with the config above
-- [ ] Delete or archive `nodogsplash/nodogsplash.conf`
-- [ ] Rename directory `nodogsplash/` → `opennds/`
+- [x] Create `opennds/opennds.conf` with the config above
+- [x] Delete or archive `nodogsplash/nodogsplash.conf`
+- [x] Rename directory `nodogsplash/` → `opennds/`
 
 ---
 
@@ -290,9 +290,9 @@ The Go backend's `/binauth-check` endpoint currently returns **seconds**. It mus
 
 ### 2.4 Tasks
 
-- [ ] Create `scripts/custombinauth.sh` with the script above
-- [ ] Archive or delete `scripts/binauth.sh`
-- [ ] Update backend `/binauth-check` to return **minutes** instead of seconds (see Phase 3)
+- [x] Create `scripts/custombinauth.sh` with the script above
+- [x] Archive or delete `scripts/binauth.sh`
+- [x] Update backend `/binauth-check` to return **minutes** instead of seconds (see Phase 3)
 
 ---
 
@@ -651,11 +651,11 @@ Replace the current `<script>` block's auth logic with:
 
 ### 4.3 Files to update
 
-- [ ] `frontend/themes/default.html` — Update JS auth block
-- [ ] `frontend/themes/modern.html` — Update JS auth block
-- [ ] `frontend/themes/corporate.html` — Update JS auth block
-- [ ] `frontend/themes/music.html` — Update JS auth block (also has Bangla text)
-- [ ] `frontend/index.html` — Update fallback page if it has NDS references
+- [x] `frontend/themes/default.html` — Update JS auth block
+- [x] `frontend/themes/modern.html` — Update JS auth block
+- [x] `frontend/themes/corporate.html` — Update JS auth block
+- [x] `frontend/themes/music.html` — Update JS auth block (also has Bangla text)
+- [x] `frontend/index.html` — Update fallback page if it has NDS references
 
 ### 4.4 What stays the same
 
@@ -852,8 +852,8 @@ OpenNDS does not use static `splash.html` pages. The entire splash mechanism is 
 
 ### 6.1 Files to delete
 
-- [ ] Remove the `splash.html` generation from `install.sh` (already done in Phase 5)
-- [ ] Remove `mkdir -p /etc/nodogsplash/htdocs/` from installer
+- [x] Remove the `splash.html` generation from `install.sh` (already done in Phase 5)
+- [x] Remove `mkdir -p /etc/nodogsplash/htdocs/` from installer
 
 ### 6.2 How OpenNDS replaces splash.html
 
@@ -873,11 +873,11 @@ The client parameters (IP, MAC, gateway info, hashed token) are all packed into 
 
 ### 7.1 Pre-deployment checklist
 
-- [ ] **OpenWrt version**: Confirm running 22.03+ with nftables/FW4
-- [ ] **Package check**: `opkg list-installed | grep opennds` shows the package
-- [ ] **Config syntax**: `uci show opennds` parses without errors
-- [ ] **Backend starts**: `curl http://127.0.0.1:7891/portal` returns HTML
-- [ ] **faskey match**: Key in `/etc/config/opennds` matches key read by Go backend
+- [x] **OpenWrt version**: Confirm running 22.03+ with nftables/FW4
+- [x] **Package check**: `opkg list-installed | grep opennds` shows the package
+- [x] **Config syntax**: `uci show opennds` parses without errors
+- [x] **Backend starts**: `curl http://127.0.0.1:7891/portal` returns HTML
+- [x] **faskey match**: Key in `/etc/config/opennds` matches key read by Go backend
 
 ### 7.2 Functional test sequence
 
@@ -958,23 +958,23 @@ scripts/
 
 ### 8.2 Update README.md
 
-- [ ] Replace all mentions of "NoDogSplash" with "OpenNDS"
-- [ ] Update the architecture diagram
-- [ ] Update installation instructions
-- [ ] Update minimum OpenWrt version requirement (22.03+)
-- [ ] Add `faskey` to the configuration documentation
-- [ ] Document the FAS authentication flow
-- [ ] Update troubleshooting section with OpenNDS-specific commands
+- [x] Replace all mentions of "NoDogSplash" with "OpenNDS"
+- [x] Update the architecture diagram
+- [x] Update installation instructions
+- [x] Update minimum OpenWrt version requirement (22.03+)
+- [x] Add `faskey` to the configuration documentation
+- [x] Document the FAS authentication flow
+- [x] Update troubleshooting section with OpenNDS-specific commands
 
 ### 8.3 Update CI/CD (`release.yml`)
 
-- [ ] No changes needed for the build matrix (Go binary + frontend build are unchanged)
-- [ ] Update release notes template to mention OpenNDS
+- [x] No changes needed for the build matrix (Go binary + frontend build are unchanged)
+- [x] Update release notes template to mention OpenNDS
 
 ### 8.4 Files to delete
 
-- [ ] `nodogsplash/nodogsplash.conf`
-- [ ] `scripts/binauth.sh`
+- [x] `nodogsplash/nodogsplash.conf`
+- [x] `scripts/binauth.sh`
 
 ### 8.5 Update `.gitignore` if needed
 
